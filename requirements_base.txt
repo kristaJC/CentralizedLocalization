@@ -1,0 +1,6 @@
+openai 
+unidecode 
+gspread==5.12.4 
+tiktoken 
+bert-score 
+mlflow
