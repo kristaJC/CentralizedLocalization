@@ -278,10 +278,32 @@ class InGameLocalizer(LocalizationRun):
             self.df = self.df.merge(i, on=['token'],how='left')
         
         return self.df 
+    
+    def _finalize_status_tracking(self):
+        #self.tracker.overall_status = "Succeeded"
+        ##update tracking sheet 
+        #sh = self.gc.open_by_url(TRACKING_SHEET_URL)
+        #data = wksht.worksheet("Tracking").get_all_values()
+        #header,values = data[0],data[1:]
+        #df = pd.DataFrame(values,columns=header)
+
+        ## Find the row, and update the status, based on row fingerprint, and status
+        ###TODO
+        ## row= sh.find()
+        ## col = #should be established
+        #self.sh.update("",self.tracker.overall_status)
+
+        ## Send email
+        ## self.gc.email??
+
+        ## Send Slack message?
+
+        ## 
 
     def write_outputs(self, post:List[pd.DataFrame])->str: 
 
         results = self._merge_outputs_by_language(post)
+        self.results = results
         
         wksht = self.sh.worksheet("output")
 

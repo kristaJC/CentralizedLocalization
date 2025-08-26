@@ -183,18 +183,6 @@ class LocalizationRun(ABC):
             })
 
         return results
-    
-    """
-    # Actually TODO: Lets alter this
-    # Default grouping: by 'lang' key if present
-    #def _group_prompts_for_translation(self, prompts):
-
-        ###REMOVE THIS! It's already prepared before now!!
-    #    groups = {}
-    #    for p in prompts:
-    #        key = p.get("lang", "default")
-    #        groups.setdefault(key, []).append(p)
-    """
 
     @abstractmethod
     def _call_model_batch(self, prompt):
