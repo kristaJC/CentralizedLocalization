@@ -11,6 +11,18 @@ ASO_TARGET_LANGUAGE_MAPPING = {
     'Portuguese (Brazil)':'pt_BR',
 }
 
+ASO_HP_TARGET_LANGUAGE_MAPPING = {
+    'Spanish (Latin America)':'es_LA',
+    'French (France)':'fr_FR',
+    'German':'de_DE',
+    'Korean':'ko_KR',
+    'Italian':'it_IT',
+    'Japanese': 'ja_JP',
+    'Simplified Chinese': 'zh_CN',
+    'Traditional Chinese (Taiwan)':'zh_TW',
+    'Portuguese (Brazil)':'pt_BR',
+}
+
 
 ASO_GENERAL_GUIDELINES = f""" General Translation Guidelines:
 

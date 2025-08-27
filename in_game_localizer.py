@@ -66,7 +66,7 @@ class InGameLocalizer(LocalizationRun):
         wkshts = self.sh.worksheets()
         for tab in self.required_tabs:
             if tab not in [wksht.title for wksht in wkshts]:
-                self.sh.add_worksheet(tab)
+                self.sh.add_worksheet(tab,rows=200, cols = 50)
                 # with expected header row
     
         return
