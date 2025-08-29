@@ -19,17 +19,20 @@ from pyspark.sql.functions import *
 from functools import reduce
 from typing import *
 import tiktoken
+from pyspark.sql.functions import *
+from pyspark.sql.types import *
 
 from base_localizer import LocalizationRun
 from ml_tracker import MLTracker
-#from InGame_Config import * 
 
 from general_config import *
-#from ASO_Config import ASO_TARGET_LANGUAGE_MAPPING, ASO_HP_TARGET_LANGUAGE_MAPPING
 from aso_config import *
 
 
 EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
+
+
+spark = pyspark.sql.SparkSession.builder.getOrCreate()
 
 class ASOLocalizer(LocalizationRun):
 
@@ -47,7 +50,7 @@ class ASOLocalizer(LocalizationRun):
         # e.g., store header row counts for ios/android
         self.ios_header_rows = self.cfg.get("input", {}).get("ios_header_rows", 3)
         self.android_header_rows = self.cfg.get("input", {}).get("android_header_rows", 3)
-        self.required_output_tabs = self.cgf.get("output sheets",[])
+        self.required_output_tabs = self.cfg.get("output sheets",[])
         self.sh = None
         self.ios_wksht = None
         self.android_wksht = None
@@ -55,6 +58,9 @@ class ASOLocalizer(LocalizationRun):
         self.ios_wide_df = None
         self.android_long_df = None
         self.android_wide_df = None
+
+        #self.long_wksht = None
+        #self.wide_wksht = None
 
         self._get_game_context()
 
@@ -83,52 +89,49 @@ class ASOLocalizer(LocalizationRun):
 
         # Open url
         try:
-            sh = self.gsheet_client.open_by_url(self.request.get("url"))
+            self.sh = self.gc.open_by_url(self.request.get("URL"))
         except Exception as e:
             raise Exception(f"Invalid spreadsheet URL: {e}")
 
-        self.sh = sh
+        wkshts = self.sh.worksheets()
+        for tab in self.required_tabs:
+            if tab not in [w.title for w in wkshts]:
+               raise Exception("necessary input tabs are missing!")
 
         try:
-            ios_wksht = self.sh.worksheet('ios')
+            self.ios_wksht = self.sh.worksheet('ios')
         except:
-            raise Exception(f"ios worksheet not found in spreadsheet '{self.request.get('url')}'")
+            raise Exception(f"ios worksheet not found in spreadsheet '{self.request.get('URL')}'")
         try:
-            android_wksht = self.sh.worksheet('android')
+            self.android_wksht = self.sh.worksheet('android')
         except:
-            raise Exception(f"android worksheet not found in spreadsheet '{self.request.get('url')}'")
+            raise Exception(f"android worksheet not found in spreadsheet '{self.request.get('URL')}'")
 
         
         # Check other tabs exist, if not, add them
         wkshts = self.sh.worksheets()
         for tab in self.required_output_tabs:
             if tab not in [w.title for w in wkshts]:
-                wksht = self.sh.add_worksheet(tab, rows=200, cols = 50)
-                ## add output appropriate output columns here
-                # update header row and formatting if needed
-        
+                print(f"Adding output sheet {tab}")
+                wksht = self.sh.add_worksheet(tab, rows=400, cols = 50)
 
         # Validate IOS formatting - if no data, leave the worksheet object as None
-        ios_data =  ios_wksht.get_all_records()
+        ios_data =  self.ios_wksht.get_all_records()
         ios_rows = len(ios_data)
-        if len(ios_data) >=4:
-            self.ios_wksht = sh.worksheet('ios')
-        
-        ### TODO: Do some data valiation for the header rows for ios and such later
-        #ios_headers = ios_rows[0:3] # make sure this is right later (exclusive end slice)
-        #if 
-        
+        if len(ios_data) < 4:
+            self.ios_wksht = None
+            self.formatted_ios_wksht = None
 
         #Validate Android Formatting
-        android_data =  android_wksht.get_all_records()
+        android_data =  self.android_wksht.get_all_records()
         android_rows = len(android_data)
-        if len(android_data)>=4:
-            self.android_wksht = self.sh.worksheet('android')
+        if len(android_data)<4:
+            self.android_wksht = None
+            self.formatted_android_wksht = None
 
         ### TODO: Do some data valiation for the header rows for android and such later
         #ios_headers = ios_rows[0:3] # make sure this is right later (exclusive end slice)
         #if 
-        
     
         return
     
@@ -142,7 +145,7 @@ class ASOLocalizer(LocalizationRun):
             df = pd.DataFrame(data, columns = ['en_US_80','en_US_500'])
 
         df['row_id'] = df.index
-        df['RowFingerprint'] = self.get('RowFingerprint')
+        df['RowFingerprint'] = self.request.get('RowFingerprint')
         df['platform'] = platform
         df['game'] = self.game  
 
@@ -180,6 +183,7 @@ class ASOLocalizer(LocalizationRun):
    
         #TODO make sure to start spark session
         df = spark.createDataFrame(df)
+        df.createOrReplaceTempView('df')
         if platform == "ios":
             return spark.sql(Q_IOS)#.toPandas()
         if platform == "android":
@@ -189,40 +193,42 @@ class ASOLocalizer(LocalizationRun):
 
     def load_inputs(self):
         if self.ios_wksht:
-            ios_data = self.ios_wksht.get_all_records()
-            #TODO: Test this
+            ios_data = self.ios_wksht.get_all_values()
             self.ios_wide_df = self._get_wide_input_format(ios_data,'ios')
-    
-            #TODO:  Test this
             self.ios_long_df = self._convert_wide_to_long_inputs(self.ios_wide_df,'ios')
 
         if self.android_wksht:
-            android_data = self.android_wksht.get_all_records()
-            #TODO: Test this
+            android_data = self.android_wksht.get_all_values()
             self.android_wide_df = self._get_wide_input_format(android_data,'android')
-            #TODO: Test this
             self.android_long_df = self._convert_wide_to_long_inputs(self.android_wide_df,'android')
 
-        return None
+        return
     
     #def _group_prompts_for_translation(self, prompts):
     #    #[{'lang':"","prompts":[]}]
     #    return groups
  
-    def preprocess(self, data:None)->Dict[str,str]: 
-        
+    def preprocess(self, data=None)->Dict[str,str]: 
+
         slug_by_lang = {} # holder for each slug for inputs by language
         prepped_holder = [] # holder for the dataframes 
+        ## Add language and character limits by language
         for lang in self.languages:
+            holder = []
             if self.ios_wksht:
                 ios_altered = self._helper_by_platform_language(self.ios_long_df, lang, "ios")
+                holder.append(ios_altered)
             if self.android_wksht:
                 android_altered = self._helper_by_platform_language(self.android_long_df, lang, "android")
-            altered = pd.concat([ios_altered, android_altered],axis=0)
+                holder.append(android_altered)
+            if len(holder)>1:
+                altered = pd.concat(holder,axis=0)
+            else:
+                altered=holder[0]
             prepped_holder.append(altered)
 
-            vals_write = altered[['row_idx','target_char_limit','en_US']].values.tolist()
-            slug = json.dumps(data_values)
+            vals_write = altered[['row_idx','target_char_limit','en_US']].to_dict(orient='records')
+            slug = json.dumps(vals_write)
             slug_by_lang[lang] = slug
 
         self.prepped = slug_by_lang # dictionary {'French':<json slug>,...}
@@ -290,15 +296,18 @@ class ASOLocalizer(LocalizationRun):
             --- Input Description and Examples ---
             Each row includes a 'row_idx' which is a unique identifier for the row. The 'target_char_limit' is the maximum number of characters allowed for the translated phrase and must ALWAYS be respected in the translated text. The 'en_US' field is the English phrase to translate.
 
+            """
+
+        base+= f"""
+        
             Example Inputs as a json string:
             json
                 [
-                {"row_idx": "row_idx_1", "target_char_limit": 30, "en_US": "Super Rainbow Power"}, 
-                {"row_idx": "row_idx_2", "target_char_limit": 50, "en_US": "Match pieces to collect super rainbow cake!"}, 
-                {"row_idx": "row_idx_3", "target_char_limit": 120, "en_US": "Celebrate a new month with the power of Super Rainbow Cake! Match pieces to unleash it's power!"}
-            ]
-
-            """
+                {{"row_idx": "row_idx_1", "target_char_limit": 30, "en_US": "Super Rainbow Power"}}, 
+                {{"row_idx": "row_idx_2", "target_char_limit": 50, "en_US": "Match pieces to collect super rainbow cake!"}}, 
+                {{"row_idx": "row_idx_3", "target_char_limit": 120, "en_US": "Celebrate a new month with the power of Super Rainbow Cake! Match pieces to unleash it's power!"}},
+                ...
+                ]\n\n"""
         lang_cd = self.lang_map[language]
 
         # Output example
@@ -320,7 +329,7 @@ class ASOLocalizer(LocalizationRun):
         ]
 
 
-    def build_prompts(self, prepped:Dict[str,str])->Dict[str, str]: 
+    def build_prompts(self, prepped:Dict[str,str]=None)->Dict[str, str]: 
 
         prompts = []
 
@@ -399,70 +408,157 @@ class ASOLocalizer(LocalizationRun):
         self.postprocessed_dfs = postprocessed_dfs 
 
         return self.postprocessed_dfs
+    
+    def _helper_long_inputs_for_merge(self):
 
-    #TODO: THIS MAY BE DIFFERNT FOR THIS CONTEXT Helper function for write_outputs
-    def _merge_outputs_by_language(self, 
+        ### Get init data
+        if self.android_long_df:
+            unioned_inputs = pd.concat([self.ios_long_df.toPandas(), self.android_long_df.toPandas()])
+        else:
+            unioned_inputs = self.ios_long_df.toPandas()
+
+        #unioned_inputs['row_id'] = unioned_inputs['row_id'].astype(int)
+
+        self.unioned_inputs = unioned_inputs
+        return self.unioned_inputs
+    
+    def _row_idx_split(self,df):
+
+        df[['row_id', 'game', 'platform', 'language_cd', 'en_char_limit']] = (
+            df['row_idx'].str.split('::', expand=True)
+        )
+        # Clean up row_id (strip off 'row_')
+        df['row_id'] = df['row_id'].str.replace('row_', '', regex=False)
+        df['row_id'] = df['row_id'].astype(int)
+        df['en_char_limit'] = df['en_char_limit'].astype(int)
+
+        return df
+    
+    def _rename_columns(self,df):
+        lang_cd = df['language_cd'].iloc[0]
+        return df.rename(columns = {lang_cd: 'translation'},inplace=False)
+
+
+    def _helper_parse_row_idx(self, post):
+        """ Helper to get the outputs formatted for long and wide result format"""
+
+        split_holder_wide = []
+        split_holder_long = []
+        for df in post:
+            
+            # split to wide format 
+            #[row_idx,<lang_cd>,row_id,game,platform,language_cd,en_char_limit]
+            df = self._row_idx_split(df)
+            split_holder_wide.append(df)
+
+            #[row_idx,translation,row_id,game,platform,language_cd,en_char_limit]
+            df_long = self._rename_columns(df)
+            split_holder_long.append(df_long)
+
+        self.parsed_post_wide = split_holder_wide
+        self.parsed_post_long = split_holder_long
+
+        return self.parsed_post_wide, self.parsed_post_long
+
+    def _merge_outputs_by_language_wide(self, 
                                    post: List[pd.DataFrame])->pd.DataFrame:
         
-        #Consider doing this for different cases
-        # eg.drop_cols set at init : ['context'] for panda pop
-        # eg.join_cols set at init: ['token']
-        aso_join_columns = []
-        aso_drop_columns = []
+        parsed_postprocessed_wide, parsed_postprocessed_long = self._helper_parse_row_idx(post)
 
-        self.df = self.df.drop(columns= drop_columns)
-        for i in post:
-            self.joined_long_inputs = self.joined_long_inputs.merge(i, on= aso_join_columns,how='left')
+        #Start with the initial English input df, merge with each language df
+        unioned_wide = self._helper_long_inputs_for_merge()
+        for df in parsed_postprocessed_wide:
+            unioned_wide = unioned_wide.merge(df.drop(columns = ['row_idx','language_cd']), on= ['row_id','platform','game','en_char_limit'],how='left')
         
-        return self.df 
+
+        # Merge post processed dfs with init prepped dfs, add to a holder
+        long_holder = []
+        for i in range(0,len(self.prepped_holder)):
+            joined = self.prepped_holder[i].merge(parsed_postprocessed_long[i], on=['game','platform','row_id','row_idx','en_char_limit','language_cd'],how='left')
+            long_holder.append(joined)
+
+        # Concat all for long format
+        unioned_long = pd.concat(long_holder)
+        
+        return unioned_wide, unioned_long
+    
+    def format_results(self, post: List[pd.DataFrame]):
+
+        unioned_wide, unioned_long = self._merge_outputs_by_language_wide(post)
+        self.unioned_wide = unioned_wide
+        self.unioned_long = unioned_long
+        
+        return unioned_wide, unioned_long
     
     def _finalize_status_tracking(self):
-            #self.tracker.overall_status = "Succeeded"
-            ##update tracking sheet 
-            #sh = self.gc.open_by_url(TRACKING_SHEET_URL)
-            #data = wksht.worksheet("Tracking").get_all_values()
-            #header,values = data[0],data[1:]
-            #df = pd.DataFrame(values,columns=header)
+        #self.tracker.overall_status = "Succeeded"
+        ##update tracking sheet 
+        #sh = self.gc.open_by_url(TRACKING_SHEET_URL)
+        #data = wksht.worksheet("Tracking").get_all_values()
+        #header,values = data[0],data[1:]
+        #df = pd.DataFrame(values,columns=header)
 
-            ## Find the row, and update the status, based on row fingerprint, and status
-            ###TODO
-            ## row= sh.find()
-            ## col = #should be established
-            #self.sh.update("",self.tracker.overall_status)
+        ## Find the row, and update the status, based on row fingerprint, and status
+        ###TODO
+        ## row = sh.find()
+        ## col = #should be established
+        #self.sh.update("",self.tracker.overall_status)
 
-            ## Send email
-            ## self.gc.email??
+        ## Send email
+        ## self.gc.email??
 
-            ## Send Slack message?
+        ## Send Slack message?
 
-            ## 
-            return
+        ## 
+        return
 
-    def _write_long_results(self):
+    def _write_long_results(self, long_df: pd.DataFrame = None):
+
+        if "long results" in self.required_output_tabs:
         
-        wksht = self.sh.worksheet("long_results")
+            wksht = self.sh.worksheet("long results")
 
-        out_data = self.long_results.values.tolist()
-        #data_range = f"A2:Q{len(out_data)+1}" # Figure out the right number of columns... 
-        ## Likely will be 
-        data_range = ""
-        try:
-            wksht.batch_update([{'range':data_range, 'values':out_data}])
-        except Exception as e:
-            print(e)
-            print("Couldn't write to sheet")
+            long_order = ["RowFingerprint","row_idx",'row_id','en_char_limit','game','platform','type_desc','en_US','language','language_cd','target_char_limit','translation']
+            ordered_long = self.unioned_long[long_order]
+
+            data_long_range = f"A2:L{len(ordered_long)+1}"
+            long_data = ordered_long.values.tolist()
+            try:
+                wksht.batch_update([{'range':data_long_range, 'values':long_data}])
+            except Exception as e:
+                print(e)
+                print("Couldn't write to sheet")
 
         return
     
-    #def _helper_group_row_id_language,align in character(self)
+    
+    def _write_wide_results(self, wide_df: pd.DataFrame = None):
+        
+        if "wide results" in self.required_output_tabs:
+            wide_order = ['row_id','en_char_limit','game','platform','type_desc','en_US',*self.lang_cds]
 
+            ordered_wide = self.unioned_wide[wide_order]
+
+            data_wide_range = f"A2:P{len(ordered_wide)+1}"
+            wide_data = ordered_long.values.tolist()
+
+            wksht = self.sh.worksheet("wide results")
+            try:
+                wksht.batch_update([{'range':data_wide_range, 'values':wide_data}])
+            except Exception as e:
+                print(e)
+                print("Couldn't write to sheet")
+
+        return
+    
+    
+    """
+    # Probably better to do with the app script after writing everything to the sheet
     def _write_formatted_results(self):
 
         if self.ios_wksht:
             ios_results = self.long_results.loc[(self.long_results['platform']=='ios')]
             ## Format 
-
-
 
             ### write to sheet
             #data_range=
@@ -473,10 +569,7 @@ class ASOLocalizer(LocalizationRun):
         if self.android_wksht:
             android_results = self.long_results.loc[(self.long_results['platform']=='android')]
 
-
-
             ## Format 
-
 
             ### write to sheet
             #data_range=
@@ -484,15 +577,16 @@ class ASOLocalizer(LocalizationRun):
             #self.android_wksht.batch_update([{'range':data_range, 'values':out_data}])
 
         return
-    
+    """
+
     def write_outputs(self, post:List[pd.DataFrame])->str: 
 
-        self.long_results = self._merge_outputs_by_language(post) # maybe return some tracking data for postprocessing and writing steps
+        wide_results, long_results = self.format_results(post) 
        
-        self._write_long_results() # maybe return some tracking data for postprocessing and writing steps
+        self._write_long_results(long_results) 
+        self._write_wide_results(wide_results)
         
-        self._write_formatted_results() # maybe return some tracking data for postprocessing and writing steps
-
+        #self._write_formatted_results() 
         #self._finalize_status_tracking()
 
         return "Done!"

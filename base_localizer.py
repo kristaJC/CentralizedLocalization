@@ -7,6 +7,7 @@ import pandas as pd
 import datetime
 import re
 import openai
+import io
 from openai import OpenAI
 import gspread
 import random
@@ -24,6 +25,28 @@ from general_config import *
 from ml_tracker import MLTracker
 
 EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
+CENTRAL_SHEET_URL = ""
+
+### Helper function to update the status
+def update_status(gc, sheet_url, tab, row_fingerprint, status, run_id=None, notes=None):
+    ws = gc.open_by_url(sheet_url).worksheet(tab)
+    data = ws.get_all_values()
+    headers = data[0]; rows = data[1:]
+    idx = {h:i for i,h in enumerate(headers)}
+    target = None
+    for r_i, r in enumerate(rows, start=2):
+        if r[idx["RowFingerprint"]] == row_fingerprint:
+            target = r_i; break
+    if not target: return
+
+    def set_cell(col, val):
+        if col in idx:
+            ws.update_cell(target, idx[col]+1, val)
+
+    set_cell("Status", status)
+    set_cell("RunID", run_id or "")
+    set_cell("Notes", (notes or "")[:500])
+    set_cell("LastUpdated", datetime.datetime.utcnow().isoformat())
 
 
 class LocalizationRun(ABC):
@@ -55,7 +78,7 @@ class LocalizationRun(ABC):
 
             with self.tracker.step("load_inputs"):
                 data = self.load_inputs()
-                self.tracker.dict({"preview": str(data)[:2000]}, "snapshots/input_preview.json")
+                #self.tracker.dict({"preview": str(data)[:2000]}, "snapshots/input_preview.json")
 
             with self.tracker.step("preprocess"):
                 prepped = self.preprocess(data)
@@ -66,10 +89,7 @@ class LocalizationRun(ABC):
                 self.tracker.metrics({"prompts.count": len(prompts)})
 
             # Build per-language trackers (child runs) using request languages
-            langs = MLTracker._parse_langs(self.request.get("TargetLanguages"))
-            # TODO:
-            # This could be remedied by just using self.languages instad of self.request.get("TargetLanguages") and parsing
-            for lang in langs:
+            for lang in self.languages:
                 self.lang_trackers[lang] = MLTracker(
                     request=self.request,
                     language=lang,
@@ -81,29 +101,53 @@ class LocalizationRun(ABC):
             with self.tracker.step("postprocess"):
                 final_rows = self.postprocess(outputs)
                 self.tracker.metrics({"rows.final": len(final_rows)})
+                #TODO: here is where we want to update with results
+                # If your postprocess returns a list[DataFrame]
+                try:
+                    merged_preview = pd.concat([df.head(200) for df in final_rows], ignore_index=True)
+                    self.tracker.log_artifact_df(merged_preview, "snapshots/postprocess_preview.csv")
+                except Exception:
+                    pass
+
 
             with self.tracker.step("write_outputs"):
                 self.write_outputs(final_rows)
+                #TODO: here is where we want to update with results
+                # If your postprocess returns a list[DataFrame]
+                try:
+                    merged_preview = pd.concat([df.head(200) for df in final_rows], ignore_index=True)
+                    self.tracker.log_artifact_df(merged_preview, "snapshots/postprocess_preview.csv")
+                except Exception:
+                    pass
 
             self.tracker.end(succeeded=True)
-            return {"status": "SUCCEEDED", "run_id": parent_run_id}
+            
+            # Update succesful status in central sheet
+            #optional:Notes
+            update_status(self.gc, CENTRAL_SHEET_URL, "Requests", self.request   ["RowFingerprint"], "SUCCEEDED", parent_run_id,)
+
+            return {"status": "SUCCEEDED", "run_id": run_id}
         except Exception as e:
-            self.tracker.end(succeeded=False, err_text=str(e))
+            self.tracker.end(False, str(e))
+            try:
+                # Update Failed status in sheet
+                update_status(self.gc, CENTRAL_SHEET_URL, "Requests",
+                            self.request["RowFingerprint"], "FAILED", run_id, str(e))
+            except Exception:
+                pass
             raise
 
     # Shared, tracked translate that spins one child run per language
     def translate(self, groups):
+
         parent = self.tracker
-        #batch_size = int(batch_size or self.cfg.get("batch_size", 50))
 
         total_prompt_tokens = 0
         total_completion_tokens = 0
         results = []
+        results_dict = {}
 
         with parent.step("translate"):
-            # TODO: we actually already have them batched in a preprocessing step
-            #groups = self._group_prompts_for_translation(prompt_batch) # remove!!!
-            #groups = self.groups 
             parent.metrics({"translate.groups": len(groups)})
 
             for group_name, prompts in groups.items():
@@ -124,6 +168,10 @@ class LocalizationRun(ABC):
                         out, usage = self._call_model_batch(prompts)  # subclass hook
                         results.append(out)
 
+                         results_dict[group_name] = raw_out
+                
+                        #lang_tracker.dict()
+
                         lang_total_p = usage.prompt_tokens
                         lang_total_c = usage.completion_tokens
 
@@ -141,37 +189,6 @@ class LocalizationRun(ABC):
 
                     lang_tracker.end(succeeded=True)
 
-                    """
-                    ##TODO: We dont need to loop by batch, only by language
-                    for i in range(0, len(prompts), batch_size):
-                        batch = prompts[i:i+batch_size]
-                        with lang_tracker.step("api_batch"):
-                            out, usage = self._call_model_batch(batch)  # subclass hook
-                            results.extend(out)
-
-                            p = (usage or {}).get("prompt_tokens", 0)
-                            c = (usage or {}).get("completion_tokens", 0)
-                            lang_total_p += p
-                            lang_total_c += c
-
-                            lang_tracker.metrics({
-                                "items.batch": len(batch),
-                                "tokens.prompt.batch": p,
-                                "tokens.completion.batch": c,
-                            })
-
-                    # per-language rollup
-                    lang_tracker.metrics({
-                        "items.total": len(prompts),
-                        "tokens.prompt.total": lang_total_p,
-                        "tokens.completion.total": lang_total_c,
-                    })
-                    # accumulate into parent
-                    total_prompt_tokens += lang_total_p
-                    total_completion_tokens += lang_total_c
-
-                    lang_tracker.end(succeeded=True)"""
-
                 except Exception as e:
                     lang_tracker.end(succeeded=False, err_text=str(e))
                     raise
@@ -182,6 +199,7 @@ class LocalizationRun(ABC):
                 "tokens.completion.total": total_completion_tokens,
             })
 
+        self.results_dict = results_dict
         return results
 
     @abstractmethod

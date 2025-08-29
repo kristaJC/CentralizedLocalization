@@ -84,7 +84,7 @@ Q_ANDROID= f""" select
 
 ASO_TARGET_LANGUAGE_MAPPING = {
     'Spanish (Latin America)':'es_LA',
-    'French (France)':'fr_FR',
+    'French':'fr_FR',
     'German':'de_DE',
     'Russian':'ru_RU',
     'Korean':'ko_KR',
@@ -97,7 +97,7 @@ ASO_TARGET_LANGUAGE_MAPPING = {
 
 ASO_HP_TARGET_LANGUAGE_MAPPING = {
     'Spanish (Latin America)':'es_LA',
-    'French (France)':'fr_FR',
+    'French':'fr_FR',
     'German':'de_DE',
     'Korean':'ko_KR',
     'Italian':'it_IT',
