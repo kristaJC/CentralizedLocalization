@@ -279,7 +279,7 @@ class InGameLocalizer(LocalizationRun):
         
         return self.df 
     
-    def _finalize_status_tracking(self):
+    #def _finalize_status_tracking(self):
         #self.tracker.overall_status = "Succeeded"
         ##update tracking sheet 
         #sh = self.gc.open_by_url(TRACKING_SHEET_URL)

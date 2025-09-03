@@ -69,7 +69,42 @@ class LocalizationRun(ABC):
         self.artifacts = {}
         self.tracker =  MLTracker(request, language=None)
         self.lang_trackers = {}
-        
+    
+    def _parse_model_json_block(self, raw_output: str):
+        """
+        Clean and parse a JSON-like string from a model output wrapped in markdown code block.
+        """
+        try:
+            # Strip markdown-style code block markers like ```json ... ```
+            cleaned = re.sub(r"^```json|```$", "", raw_output.strip(), flags=re.IGNORECASE).strip()
+            # Remove escaped newlines
+            cleaned = cleaned.replace("\\n", "").replace("\n", "").strip()
+            loaded = json.loads(cleaned)
+        except Exception as e:
+            raise ValueError(f"Could not parse JSON: {e}")
+
+        if isinstance(loaded, str):
+            try:
+                return json.loads(loaded)
+            except Exception as e:
+                raise ValueError(f"Could not parse inner JSON: {e}")
+        return loaded
+    
+    def _format_results(self, final_rows=None):
+        """Subclasses may override. Default: no-op."""
+        return final_rows, None
+
+    def _to_dataframe(self, lang: str, raw_output: str) -> pd.DataFrame:
+        """
+        Convert raw model output for one language into a DataFrame,
+        adding a 'lang' column if not already present.
+        """
+        parsed = self._parse_model_json_block(raw_output)
+        df = pd.DataFrame(parsed)
+        if "lang" not in df.columns:
+            df.insert(0, "lang", lang)
+        return df
+
     def run(self):
         parent_run_id = self.tracker.start()  # parent request-level run
         try:
@@ -101,40 +136,32 @@ class LocalizationRun(ABC):
             with self.tracker.step("postprocess"):
                 final_rows = self.postprocess(outputs)
                 self.tracker.metrics({"rows.final": len(final_rows)})
-                #TODO: here is where we want to update with results
-                # If your postprocess returns a list[DataFrame]
-                try:
-                    merged_preview = pd.concat([df.head(200) for df in final_rows], ignore_index=True)
-                    self.tracker.log_artifact_df(merged_preview, "snapshots/postprocess_preview.csv")
-                except Exception:
-                    pass
+                
 
+            # ---- NEW: formatting + artifact logging hook ----
+            with self.tracker.step("format_results_and_log"):
+                formatted, artifacts = self._format_results(final_rows)
+                # artifacts is an optional dict like {"aso_wide": df, "aso_long": df, "notes": "str", ...}
+                self._log_declared_artifacts(artifacts)
 
             with self.tracker.step("write_outputs"):
                 self.write_outputs(final_rows)
-                #TODO: here is where we want to update with results
-                # If your postprocess returns a list[DataFrame]
-                try:
-                    merged_preview = pd.concat([df.head(200) for df in final_rows], ignore_index=True)
-                    self.tracker.log_artifact_df(merged_preview, "snapshots/postprocess_preview.csv")
-                except Exception:
-                    pass
 
             self.tracker.end(succeeded=True)
             
             # Update succesful status in central sheet
             #optional:Notes
-            update_status(self.gc, CENTRAL_SHEET_URL, "Requests", self.request   ["RowFingerprint"], "SUCCEEDED", parent_run_id,)
+            #update_status(self.gc, CENTRAL_SHEET_URL, "Requests", self.request   ["RowFingerprint"], "SUCCEEDED", parent_run_id,)
 
-            return {"status": "SUCCEEDED", "run_id": run_id}
+            return {"status": "SUCCEEDED", "run_id": parent_run_id}
         except Exception as e:
             self.tracker.end(False, str(e))
-            try:
+            #try:
                 # Update Failed status in sheet
-                update_status(self.gc, CENTRAL_SHEET_URL, "Requests",
-                            self.request["RowFingerprint"], "FAILED", run_id, str(e))
-            except Exception:
-                pass
+                #update_status(self.gc, CENTRAL_SHEET_URL, "Requests",
+                #            self.request["RowFingerprint"], "FAILED", run_id, str(e))
+            #except Exception:
+            #    pass
             raise
 
     # Shared, tracked translate that spins one child run per language
@@ -144,14 +171,35 @@ class LocalizationRun(ABC):
 
         total_prompt_tokens = 0
         total_completion_tokens = 0
-        results = []
-        results_dict = {}
+        results_tracker = {}
+        results_list = []
 
         with parent.step("translate"):
             parent.metrics({"translate.groups": len(groups)})
 
-            for group_name, prompts in groups.items():
-                # pick the language tracker matching group_name; fallback to a generic child tracker
+            for lang, prompts in groups.items():
+
+                with self.tracker.child(lang) as t:
+                    with t.step("api_call"):
+                        raw_out, usage = self._call_model_batch(prompts)
+                    p, c = MLTracker.extract_usage_tokens(usage)
+                    results_list.append(raw_out)
+
+                    t.metrics({"items.total": len(prompts) if hasattr(prompts,"__len__") else 1,
+                            "tokens.prompt.total": p,
+                            "tokens.completion.total": c})
+                    # per-language DF artifact
+                    df_lang = self._to_dataframe(lang, raw_out)
+                    results_tracker[lang]=df_lang
+                    t.log_artifact_df(df_lang, f"outputs/{lang}.csv")
+                    # roll up to parent
+                    self.tracker.add_child_summary(lang, {"rows": len(df_lang), "tokens.prompt.total": p, "tokens.completion.total": c})
+
+                    # accumulate into parent
+                    total_prompt_tokens += p
+                    total_completion_tokens += c
+
+                """
                 lang_tracker = self.lang_trackers.get(group_name) or MLTracker(
                     request=self.request,
                     language=group_name,
@@ -192,15 +240,36 @@ class LocalizationRun(ABC):
                 except Exception as e:
                     lang_tracker.end(succeeded=False, err_text=str(e))
                     raise
-
-            # parent rollup
+            """             
+            #parent rollup
             parent.metrics({
                 "tokens.prompt.total": total_prompt_tokens,
                 "tokens.completion.total": total_completion_tokens,
             })
+        self.results_list = results_list
+        self.results_tracker = results_tracker
+        return results_list
 
-        self.results_dict = results_dict
-        return results
+     # ---------- helper to log arbitrary artifacts declared by a subclass ----------
+    def _log_declared_artifacts(self, artifacts):
+        if not artifacts:
+            return
+        for name, obj in artifacts.items():
+            try:
+                if hasattr(obj, "to_csv"):  # e.g., pandas DataFrame
+                    self.tracker.log_artifact_df(obj, f"custom/{name}.csv")
+                elif isinstance(obj, (dict, list)):
+                    self.tracker.log_artifact_json(obj, f"custom/{name}.json")
+                elif isinstance(obj, str):
+                    # Heuristic: JSON-ish strings to .json, else .txt
+                    path = f"custom/{name}.json" if obj.strip().startswith(("{","[")) else f"custom/{name}.txt"
+                    self.tracker.log_artifact_text(obj, path)
+                else:
+                    # Fallback: stringify
+                    self.tracker.log_artifact_text(str(obj), f"custom/{name}.txt")
+            except Exception as e:
+                # don't fail the run just because logging an artifact failed
+                self.tracker.event(f"Artifact '{name}' logging failed: {e}")
 
     @abstractmethod
     def _call_model_batch(self, prompt):

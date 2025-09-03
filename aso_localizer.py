@@ -361,9 +361,9 @@ class ASOLocalizer(LocalizationRun):
         usage = response.usage
 
         return output, usage
+        
 
-
-    def _parse_model_json_block(self, raw_output:str)->Dict[str,Any]:
+    def _parse_model_json_block_old_ignore(self, raw_output:str)->Dict[str,Any]:
         """
         Cleans and parses a JSON-like string from a model output wrapped in markdown code block.
         
@@ -482,7 +482,34 @@ class ASOLocalizer(LocalizationRun):
         
         return unioned_wide, unioned_long
     
-    def format_results(self, post: List[pd.DataFrame]):
+
+    #TODO: check this
+    def _format_results(self, post):
+
+         """
+        Provide ASO-specific artifacts and (optionally) adjust what gets written.
+        """
+        # You can still tweak the rows sent to write_outputs, e.g., pass wide only:
+        #formatted = [self._aso_wide]
+        unioned_wide, unioned_long = self._merge_outputs_by_language_wide(post)
+
+        # Declare artifacts to log at the PARENT run:
+        artifacts = {
+            "aso_outputs_wide": self.unioned_wide,
+            "aso_outputs_long": self.unioned_long,
+            "aso_output_schema": {
+                "wide_columns": list(self.unioned_wide.columns),
+                "long_columns": list(self.unioned_long.columns),
+            },
+        }
+        # Optional: full dumps behind a flag
+        #if self.cfg.get("log_full_artifacts", False):
+        #artifacts["aso_outputs_wide"] = self.unioned_wide
+        #artifacts["aso_outputs_long"] = self.unioned_long
+
+        return formatted, artifacts
+
+    def _format_results_helper(self, post: List[pd.DataFrame]):
 
         unioned_wide, unioned_long = self._merge_outputs_by_language_wide(post)
         self.unioned_wide = unioned_wide
@@ -490,7 +517,7 @@ class ASOLocalizer(LocalizationRun):
         
         return unioned_wide, unioned_long
     
-    def _finalize_status_tracking(self):
+    #def _finalize_status_tracking(self):
         #self.tracker.overall_status = "Succeeded"
         ##update tracking sheet 
         #sh = self.gc.open_by_url(TRACKING_SHEET_URL)
@@ -510,7 +537,7 @@ class ASOLocalizer(LocalizationRun):
         ## Send Slack message?
 
         ## 
-        return
+    #    return
 
     def _write_long_results(self, long_df: pd.DataFrame = None):
 
@@ -581,10 +608,14 @@ class ASOLocalizer(LocalizationRun):
 
     def write_outputs(self, post:List[pd.DataFrame])->str: 
 
-        wide_results, long_results = self.format_results(post) 
+        #wide_results, long_results = self.format_results(post) 
+        print("Writing outputs....")
+        print("length long_results", len(long_results))
        
-        self._write_long_results(long_results) 
-        self._write_wide_results(wide_results)
+        #self.wide_results = wide_results
+        #self.long_results = long_results
+        self._write_long_results(self.unioned_long) 
+        self._write_wide_results(self.unioned_wide)
         
         #self._write_formatted_results() 
         #self._finalize_status_tracking()
