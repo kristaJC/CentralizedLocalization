@@ -482,40 +482,38 @@ class ASOLocalizer(LocalizationRun):
         
         return unioned_wide, unioned_long
     
-
-    #TODO: check this
-    def _format_results(self, post):
-
-         """
-        Provide ASO-specific artifacts and (optionally) adjust what gets written.
+    def _format_results(self, post: list[pd.DataFrame]):
         """
-        # You can still tweak the rows sent to write_outputs, e.g., pass wide only:
-        #formatted = [self._aso_wide]
-        unioned_wide, unioned_long = self._merge_outputs_by_language_wide(post)
+        Produce both ASO shapes. Return them in a dict so the base will hand
+        them to write_outputs(formatted_rows).
+        """
+        wide, long_ = self._merge_outputs_by_language_wide(post)
+        self.unioned_wide = wide
+        self.unioned_long = long_
 
-        # Declare artifacts to log at the PARENT run:
         artifacts = {
-            "aso_outputs_wide": self.unioned_wide,
-            "aso_outputs_long": self.unioned_long,
+            "aso_outputs_wide_preview": wide.head(1000),
+            "aso_outputs_long_preview": long_.head(1000),
             "aso_output_schema": {
-                "wide_columns": list(self.unioned_wide.columns),
-                "long_columns": list(self.unioned_long.columns),
+                "wide_columns": list(wide.columns),
+                "long_columns": list(long_.columns),
             },
         }
-        # Optional: full dumps behind a flag
-        #if self.cfg.get("log_full_artifacts", False):
-        #artifacts["aso_outputs_wide"] = self.unioned_wide
-        #artifacts["aso_outputs_long"] = self.unioned_long
+        if self.cfg.get("log_full_artifacts", False):
+            artifacts["aso_outputs_wide"] = wide
+            artifacts["aso_outputs_long"] = long_
 
-        return formatted, artifacts
+        # Return BOTH for the writer
+        return {"wide": wide, "long": long_}, artifacts
 
-    def _format_results_helper(self, post: List[pd.DataFrame]):
+    ## DEPRECATED
+    #def _format_results_helper_old(self, post: List[pd.DataFrame]):
 
-        unioned_wide, unioned_long = self._merge_outputs_by_language_wide(post)
-        self.unioned_wide = unioned_wide
-        self.unioned_long = unioned_long
+    #    unioned_wide, unioned_long = self._merge_outputs_by_language_wide(post)
+    #    self.unioned_wide = unioned_wide
+    #    self.unioned_long = unioned_long
         
-        return unioned_wide, unioned_long
+    #    return unioned_wide, unioned_long
     
     #def _finalize_status_tracking(self):
         #self.tracker.overall_status = "Succeeded"
@@ -540,41 +538,56 @@ class ASOLocalizer(LocalizationRun):
     #    return
 
     def _write_long_results(self, long_df: pd.DataFrame = None):
-
-        if "long results" in self.required_output_tabs:
         
+        print("TRYING LONG RESULTS")
+        try:
             wksht = self.sh.worksheet("long results")
+            print("opening long results tab")
+        except Exception as e:
+            print(e)
+            print("Couldn't open long results tab")
 
-            long_order = ["RowFingerprint","row_idx",'row_id','en_char_limit','game','platform','type_desc','en_US','language','language_cd','target_char_limit','translation']
-            ordered_long = self.unioned_long[long_order]
+        long_order = ["RowFingerprint","row_idx",'row_id','en_char_limit','game','platform','type_desc','en_US','language','language_cd','target_char_limit','translation']
 
-            data_long_range = f"A2:L{len(ordered_long)+1}"
-            long_data = ordered_long.values.tolist()
-            try:
-                wksht.batch_update([{'range':data_long_range, 'values':long_data}])
-            except Exception as e:
-                print(e)
-                print("Couldn't write to sheet")
+        if long_df:
+            ordered_long = long_df[long_order]
+        else:
+            ordered_long = self.unioned_wide[long_order]
+        #ordered_long = self.unioned_long[long_order]
+
+        data_long_range = f"A2:L{len(ordered_long)+1}"
+        long_data = ordered_long.values.tolist()
+        try:
+            wksht.batch_update([{'range':data_long_range, 'values':long_data}])
+            print("Writing long results...DONE!")
+        except Exception as e:
+            print(e)
+            print("Couldn't write long results to tab")
 
         return
     
     
     def _write_wide_results(self, wide_df: pd.DataFrame = None):
         
-        if "wide results" in self.required_output_tabs:
-            wide_order = ['row_id','en_char_limit','game','platform','type_desc','en_US',*self.lang_cds]
+        print("TRYING WIDE RESULTS")
+        #if "wide results" in self.required_output_tabs:
+        wide_order = ['row_id','en_char_limit','game','platform','type_desc','en_US',*self.lang_cds]
 
+        if wide_df:
+            ordered_wide = wide_df[wide_order]
+        else:
             ordered_wide = self.unioned_wide[wide_order]
 
-            data_wide_range = f"A2:P{len(ordered_wide)+1}"
-            wide_data = ordered_long.values.tolist()
+        data_wide_range = f"A2:P{len(ordered_wide)+1}"
+        wide_data = ordered_wide.values.tolist()
 
-            wksht = self.sh.worksheet("wide results")
-            try:
-                wksht.batch_update([{'range':data_wide_range, 'values':wide_data}])
-            except Exception as e:
-                print(e)
-                print("Couldn't write to sheet")
+        wksht = self.sh.worksheet("wide results")
+        try:
+            wksht.batch_update([{'range':data_wide_range, 'values':wide_data}])
+            print("Writing wide results...DONE!")
+        except Exception as e:
+            print(e)
+            print("Couldn't write wide results to tab")
 
         return
     
@@ -606,7 +619,23 @@ class ASOLocalizer(LocalizationRun):
         return
     """
 
-    def write_outputs(self, post:List[pd.DataFrame])->str: 
+    def write_outputs(self, formatted_rows) -> str:
+        """
+        formatted_rows comes from _format_results(). For ASO it's {"wide": df, "long": df}.
+        We still use the class vars set in _format_results for simplicity.
+        """
+        # Be tolerant to being called with either dict or None (future-proof).
+        if isinstance(formatted_rows, dict):
+            self.unioned_wide = formatted_rows.get("wide", self.unioned_wide)
+            self.unioned_long = formatted_rows.get("long", self.unioned_long)
+
+        # Write both tabs if configured
+        self._write_long_results(self.unioned_long)
+        self._write_wide_results(self.unioned_wide)
+        return f"Done writing results to URL {self.sh.url}!"
+    
+    """
+    def write_outputs_old(self, post:List[pd.DataFrame])->str: 
 
         #wide_results, long_results = self.format_results(post) 
         print("Writing outputs....")
@@ -621,3 +650,5 @@ class ASOLocalizer(LocalizationRun):
         #self._finalize_status_tracking()
 
         return "Done!"
+
+    """

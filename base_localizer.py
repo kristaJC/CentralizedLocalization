@@ -198,49 +198,7 @@ class LocalizationRun(ABC):
                     # accumulate into parent
                     total_prompt_tokens += p
                     total_completion_tokens += c
-
-                """
-                lang_tracker = self.lang_trackers.get(group_name) or MLTracker(
-                    request=self.request,
-                    language=group_name,
-                    experiment_name=parent.experiment_name
-                )
-
-                # Start the child run as nested=True
-                lang_run_id = lang_tracker.start(nested=True)
-                try:
-                    lang_total_p = 0
-                    lang_total_c = 0
-
-                    with lang_tracker.step("api_batch"):
-                        out, usage = self._call_model_batch(prompts)  # subclass hook
-                        results.append(out)
-
-                         results_dict[group_name] = raw_out
-                
-                        #lang_tracker.dict()
-
-                        lang_total_p = usage.prompt_tokens
-                        lang_total_c = usage.completion_tokens
-
-
-                    # per-language metric
-                    lang_tracker.metrics({
-                        "items.total": len(prompts),
-                        "tokens.prompt.total": lang_total_p,
-                        "tokens.completion.total": lang_total_c,
-                    })
-
-                    # accumulate into parent
-                    total_prompt_tokens += lang_total_p
-                    total_completion_tokens += lang_total_c
-
-                    lang_tracker.end(succeeded=True)
-
-                except Exception as e:
-                    lang_tracker.end(succeeded=False, err_text=str(e))
-                    raise
-            """             
+ 
             #parent rollup
             parent.metrics({
                 "tokens.prompt.total": total_prompt_tokens,
@@ -296,5 +254,5 @@ class LocalizationRun(ABC):
         pass
 
     @abstractmethod
-    def write_outputs(self, post): 
+    def write_outputs(self, post: Optional[pd.DataFrame] = None): 
         pass
