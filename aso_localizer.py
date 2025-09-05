@@ -547,9 +547,10 @@ class ASOLocalizer(LocalizationRun):
             print(e)
             print("Couldn't open long results tab")
 
+        # This could be in configs
         long_order = ["RowFingerprint","row_idx",'row_id','en_char_limit','game','platform','type_desc','en_US','language','language_cd','target_char_limit','translation']
 
-        if long_df:
+        if long_df is not None:
             ordered_long = long_df[long_order]
         else:
             ordered_long = self.unioned_wide[long_order]
@@ -570,10 +571,17 @@ class ASOLocalizer(LocalizationRun):
     def _write_wide_results(self, wide_df: pd.DataFrame = None):
         
         print("TRYING WIDE RESULTS")
+        try:
+            wksht = self.sh.worksheet("wide results")
+            print("opening wide results tab")
+        except Exception as e:
+            print(e)
+            print("Couldn't open wide results tab")
+
         #if "wide results" in self.required_output_tabs:
         wide_order = ['row_id','en_char_limit','game','platform','type_desc','en_US',*self.lang_cds]
 
-        if wide_df:
+        if wide_df is not None:
             ordered_wide = wide_df[wide_order]
         else:
             ordered_wide = self.unioned_wide[wide_order]
@@ -581,7 +589,7 @@ class ASOLocalizer(LocalizationRun):
         data_wide_range = f"A2:P{len(ordered_wide)+1}"
         wide_data = ordered_wide.values.tolist()
 
-        wksht = self.sh.worksheet("wide results")
+        #wksht = self.sh.worksheet("wide results")
         try:
             wksht.batch_update([{'range':data_wide_range, 'values':wide_data}])
             print("Writing wide results...DONE!")
