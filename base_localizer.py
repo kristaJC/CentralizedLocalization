@@ -69,7 +69,8 @@ class LocalizationRun(ABC):
         self.artifacts = {}
         self.tracker =  MLTracker(request, language=None)
         self.lang_trackers = {}
-    
+
+
     def _parse_model_json_block(self, raw_output: str):
         """
         Clean and parse a JSON-like string from a model output wrapped in markdown code block.
@@ -104,6 +105,26 @@ class LocalizationRun(ABC):
         if "lang" not in df.columns:
             df.insert(0, "lang", lang)
         return df
+
+    # ---- QC hooks (no-op by default) ----
+    def qc_checks(self, final_rows: Any) -> Dict[str, Any]:
+        """
+        Return a dict report. Expected shape (convention):
+        {
+          "ok": bool,
+          "issues": List[dict],         # each issue has enough info to re-run/repair
+          "stats": {"overlimit": int},  # optional
+        }
+        Default: no QC → ok=True
+        """
+        return {"ok": True, "issues": [], "stats": {}}
+
+    def qc_repair(self, final_rows: Any, report: Dict[str, Any], attempt: int) -> Any:
+        """
+        Given a QC report with issues, produce a repaired final_rows (e.g., re-translate bad rows).
+        Default: return final_rows unchanged.
+        """
+        return final_rows
 
     def run(self):
         parent_run_id = self.tracker.start()  # parent request-level run
@@ -143,6 +164,45 @@ class LocalizationRun(ABC):
                 formatted, artifacts = self._format_results(final_rows)
                 # artifacts is an optional dict like {"aso_wide": df, "aso_long": df, "notes": "str", ...}
                 self._log_declared_artifacts(artifacts)
+
+            # Strict policies: enforce placeholders BEFORE char-limit QC
+            if (self.cfg or {}).get("char_limit_policy", "").lower() == "strict":
+                with self.tracker.step("qc_placeholders_enforce"):
+                    long_df = _get_long_df(formatted) #TODO - add helper
+                    fixed_long, added = _enforce_placeholders_on_df(long_df) #TODO: Add helper
+                    formatted = _set_long_df(formatted, fixed_long) #TODO: Add helper
+                    # metrics so you can see impact per run
+                    self.tracker.metrics({"qc.placeholders_added": float(added)})
+
+            # ---- QC loop (config-driven) ----
+            qc_cfg = (self.cfg or {}).get("qc", {})
+            enabled = bool(qc_cfg.get("enabled", False))
+            max_retries = int(qc_cfg.get("max_retries", 0))
+
+            if enabled:
+                for attempt in range(1, max_retries + 1):
+                    with self.tracker.step(f"qc_attempt_{attempt}"):
+                        report = self.qc_checks(formatted)
+                        # Log a few metrics
+                        stats = report.get("stats", {})
+                        if stats:
+                            self.tracker.metrics({f"qc.{k}": v for k, v in stats.items()})
+                        self.tracker.event(f"QC attempt {attempt}: ok={report.get('ok')} issues={len(report.get('issues', []))}")
+
+                        if report.get("ok", True):
+                            break  # all good
+                        # try to repair
+                        formatted = self.qc_repair(formatted, report, attempt)
+
+                # (optional) final QC assert
+                final_report = self.qc_checks(formatted)
+                if not final_report.get("ok", True):
+                    self.tracker.event("QC final: still failing after retries")
+                    # You can decide to raise or proceed. Here we proceed but tag:
+                    self.tracker.params({"qc_final_ok": False})
+                else:
+                    self.tracker.params({"qc_final_ok": True})
+
 
             with self.tracker.step("write_outputs"):
                 self.write_outputs(final_rows)

@@ -22,7 +22,8 @@ import tiktoken
 
 from base_localizer import LocalizationRun
 from ml_tracker import MLTracker
-from InGame_Config import * 
+#from InGame_Config import *
+from marketing_config import * 
 
 from general_config import *
 
@@ -30,7 +31,7 @@ from general_config import *
 EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
 
 
-class InGameLocalizer(LocalizationRun):
+class MarketingLocalizer(LocalizationRun):
 
     def __init__(self, 
                  request, 
@@ -79,6 +80,29 @@ class InGameLocalizer(LocalizationRun):
 
         return self.data
     
+    def _get_languages(self):
+        target_langs_str = self.request.get("TargetLanguages")
+        self.languages = [lang.strip() for lang in target_langs_str.split(",")]
+
+        lang_map = {}
+        for lang in self.languages:
+            lang_map[lang] = ALL_LANGUAGES[lang]
+        
+
+        self.lang_map = lang_map
+        self.lang_cds = list(self.lang_map.values())
+  
+
+
+    def _get_examples(self):
+        self.ex_input = json.dumps(self.df.iloc[0].to_dict())
+        self.token_infer = ""
+        self.context_infer = "The english phrase to translate is indicated by the value for key 'en_US'. All other keys in the dict for each row are context and should be used to help inform the translation."
+
+
+        #self.ex_output = 
+    
+
     #TODO: Note, the data as input is redundant 
     def preprocess(self, data:List[str])->str: 
 
@@ -87,59 +111,24 @@ class InGameLocalizer(LocalizationRun):
 
         return prepped
 
-    
     def _get_game_context(self):
-
         """ Helper function to get relevant context for in game localization for particular game """
         game = self.request.get('Game')
         self.game = game
         self.lang_specific_guidelines = GENERAL_LANG_SPECIFIC_GUIDELINES
         self.general_game_specific_guidelines = GENERAL_GAME_SPECIFIC_GUIDELINES
+        self.game_description = self.general_game_specific_guidelines[game]
 
-        if game not in ["Panda Pop","Cookie Jam Blast","Genies & Gems"]:
-            raise Exception(f"Game {game} not supported")
+        ### still need to set self.lang_map, self.languages, self.lang_cds
 
-        # Specifics for games
-        if game == "Panda Pop":
-            self.game_description = self.general_game_specific_guidelines[game]
-            self.lang_map = PP_LANG_MAP
-            self.languages = list(self.lang_map.keys())
-            self.lang_cds = list(self.lang_map.values())
-        
-            # game specific prompt inputs 
-            self.ex_input = PP_EX_INPUT
-            self.context_infer = PP_CONTEXT_INFER
-            self.token_infer = PP_TOKEN_INFER
-        
-        if game == "Cookie Jam Blast":
-            self.game_description = self.general_game_specific_guidelines[game]
-            self.lang_map = CJB_LANG_MAP
-            self.languages = list(self.lang_map.keys())
-            self.lang_cds = list(self.lang_map.values())
-
-            # game specific prompt inputs 
-            self.ex_input = CJB_EX_INPUT
-            self.context_infer = CJB_CONTEXT_INFER
-            self.token_infer = CJB_TOKEN_INFER
-            
-        if game == "Genies & Gems":
-            self.game_description = self.general_game_specific_guidelines[game]
-            self.lang_map = GG_LANG_MAP
-            self.languages = list(self.lang_map.keys())
-            self.lang_cds = list(self.lang_map.values())
-
-            # game specific prompt inputs 
-            self.ex_input = GG_EX_INPUT
-            self.context_infer = GG_CONTEXT_INFER
-            self.token_infer = GG_TOKEN_INFER
-
-        #self.languages = list(self.lang_map.keys())
-        #self.lang_cds = list(self.lang_map.values())
 
     def _generate_prompt_helper(self, 
                                 language:str, 
                                 game:str, 
                                 prepped:str)->List[Dict[str, Any]]:
+        
+        
+        self._get_examples()
 
         base = f""" 
             You are a professional game localizer translating for a popular mobile puzzle game called {self.game} by Jam City which is described as:
@@ -167,12 +156,12 @@ class InGameLocalizer(LocalizationRun):
             Respond in **JSON format**, one object per row:
             json
             [
-            {{ "token": "token_name_1", "{lang_cd}": "translated phrase 1" }},
-            {{ "token": "token_name_2", "{lang_cd}": "translated phrase 2" }},
+            {{ "en_US": "english phrase 1", "{lang_cd}": "translated phrase 1" }},
+            {{ "en_US": "english phrase 2", "{lang_cd}": "translated phrase 2" }},
             ...
             ]\n\n
             """
-    
+
         return [
             {"role": "system", "content": base},
             {"role": "user",   "content": prepped}
@@ -180,6 +169,8 @@ class InGameLocalizer(LocalizationRun):
 
     def build_prompts(self, prepped:str)->Dict[str,List[Dict[str, Any]]]: 
         #self._get_game_contex()
+
+        self._get_languages()
         prompts = []
         self.prepped = prepped
 
@@ -272,12 +263,16 @@ class InGameLocalizer(LocalizationRun):
         # eg.drop_cols set at init : ['context'] for panda pop
         # eg.join_cols set at init: ['token']
 
+        ### join cols should by by index at this point... or change the output
 
-        self.df = self.df.drop(columns=['context'])
+
+        results = self.df
         for i in post:
-            self.df = self.df.merge(i, on=['token'],how='left')
+            results = results.merge(i, on=['en_US'],how='left')
         
-        return self.df 
+        self.results = results[['en_US',*self.lang_cds]]
+
+        return self.results
     
     #def _finalize_status_tracking(self):
         #self.tracker.overall_status = "Succeeded"
@@ -303,14 +298,54 @@ class InGameLocalizer(LocalizationRun):
     def write_outputs(self, post:List[pd.DataFrame])->str: 
 
         results = self._merge_outputs_by_language(post)
-        self.results = results
+        self.results = results.fillna("")
+
+        ### flag for recheck for any missing translations!!!
         
         wksht = self.sh.worksheet("output")
 
-        out_data = results.values.tolist()
-        data_range = f"A2:Q{len(out_data)+1}"
+        headers = self.results.columns.tolist()
+        out_data = self.results.values.tolist()
+        
+        
+        number_to_letter = {
+            "1": "A",
+            "2": "B",
+            "3": "C",
+            "4": "D",
+            "5": "E",
+            "6": "F",
+            "7": "G",
+            "8": "H",
+            "9": "I",
+            "10": "J",
+            "11": "K",
+            "12": "L",
+            "13": "M",
+            "14": "N",
+            "15": "O",
+            "16": "P",
+            "17": "Q",
+            "18": "R",
+            "19": "S",
+            "20": "T",
+            "21": "U",
+            "22": "V",
+            "23": "W",
+            "24": "X",
+            "25": "Y",
+            "26": "Z"
+        }
+        letter_range = number_to_letter[str(len(headers))]
+        data_range = f"A2:{letter_range}{len(out_data)+1}"
 
-        wksht.batch_update([{'range':data_range, 'values':out_data}])
+
+        wksht.batch_update([{
+                        'range':f"A1:{letter_range}1", 'values':[headers]
+                        },
+                        {
+                        'range':data_range, 'values':out_data
+                        }])
 
         return "Done!"
 

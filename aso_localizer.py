@@ -21,6 +21,7 @@ from typing import *
 import tiktoken
 from pyspark.sql.functions import *
 from pyspark.sql.types import *
+import numpy as np
 
 from base_localizer import LocalizationRun
 from ml_tracker import MLTracker
@@ -203,11 +204,9 @@ class ASOLocalizer(LocalizationRun):
             self.android_long_df = self._convert_wide_to_long_inputs(self.android_wide_df,'android')
 
         return
-    
-    #def _group_prompts_for_translation(self, prompts):
-    #    #[{'lang':"","prompts":[]}]
-    #    return groups
  
+
+    #### Issue here... 
     def preprocess(self, data=None)->Dict[str,str]: 
 
         slug_by_lang = {} # holder for each slug for inputs by language
@@ -222,10 +221,10 @@ class ASOLocalizer(LocalizationRun):
                 android_altered = self._helper_by_platform_language(self.android_long_df, lang, "android")
                 holder.append(android_altered)
             if len(holder)>1:
-                altered = pd.concat(holder,axis=0)
+                altered = pd.concat(holder)
             else:
                 altered=holder[0]
-            prepped_holder.append(altered)
+            prepped_holder.extend(altered)
 
             vals_write = altered[['row_idx','target_char_limit','en_US']].to_dict(orient='records')
             slug = json.dumps(vals_write)
@@ -296,6 +295,9 @@ class ASOLocalizer(LocalizationRun):
             --- Input Description and Examples ---
             Each row includes a 'row_idx' which is a unique identifier for the row. The 'target_char_limit' is the maximum number of characters allowed for the translated phrase and must ALWAYS be respected in the translated text. The 'en_US' field is the English phrase to translate.
 
+            ---- Handling Placeholders  ---
+            Important: Keep placeholders like {ITEM} or <NAME> unchanged in the translation. Copy them exactly as in English.
+
             """
 
         base+= f"""
@@ -354,7 +356,7 @@ class ASOLocalizer(LocalizationRun):
         response = self.gpt.chat.completions.create(
                 model=MODEL, 
                 messages=prompt,
-                temperature=0.05  # adjust for creativity vs. stability
+                temperature=0.001  # adjust for creativity vs. stability
         )
 
         output = response.choices[0].message.content
@@ -362,40 +364,6 @@ class ASOLocalizer(LocalizationRun):
 
         return output, usage
         
-
-    def _parse_model_json_block_old_ignore(self, raw_output:str)->Dict[str,Any]:
-        """
-        Cleans and parses a JSON-like string from a model output wrapped in markdown code block.
-        
-        Args:
-            raw_output (str): The raw output string, e.g., from GPT, wrapped with ```json ... ```
-        
-        Returns:
-            list[dict]: Parsed JSON content as Python list of dictionaries.
-            
-        Raises:
-            ValueError: If the cleaned string cannot be parsed as valid JSON.
-        """
-        try:
-            # Strip markdown-style code block markers and leading/trailing whitespace
-            cleaned = re.sub(r"^```json|```$", "", raw_output.strip(), flags=re.IGNORECASE).strip()
-
-            # Replace escaped newlines (if necessary) and extra leading/trailing junk
-            cleaned = cleaned.replace("\\n", "").replace("\n", "").strip()
-
-            # Now parse
-            loaded = json.loads(cleaned)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Could not parse JSON: {e}")
-
-        if isinstance(loaded, str):
-            try:
-                return json.loads(loaded)
-            except:
-                raise ValueError(f"Could not parse JSON: {e}")
-        else:
-            return loaded
-
 
     def postprocess(self, outputs)->List[pd.DataFrame]: 
         
@@ -504,38 +472,234 @@ class ASOLocalizer(LocalizationRun):
             artifacts["aso_outputs_long"] = long_
 
         # Return BOTH for the writer
-        return {"wide": wide, "long": long_}, artifacts
-
-    ## DEPRECATED
-    #def _format_results_helper_old(self, post: List[pd.DataFrame]):
-
-    #    unioned_wide, unioned_long = self._merge_outputs_by_language_wide(post)
-    #    self.unioned_wide = unioned_wide
-    #    self.unioned_long = unioned_long
-        
-    #    return unioned_wide, unioned_long
+        ##TODO: we actually want to rebuild the long later
+        #return {"wide": wide, "long": long_}, artifacts
+        return self.unioned_long.copy(), artifacts
     
-    #def _finalize_status_tracking(self):
-        #self.tracker.overall_status = "Succeeded"
-        ##update tracking sheet 
-        #sh = self.gc.open_by_url(TRACKING_SHEET_URL)
-        #data = wksht.worksheet("Tracking").get_all_values()
-        #header,values = data[0],data[1:]
-        #df = pd.DataFrame(values,columns=header)
+    # ---------- QC: strict char limit ----------
+    def qc_checks(self, formatted: Any) -> Dict[str, Any]:
+        """
+        formatted: expected to be a pandas DataFrame in long format with:
+          ['row_idx','language','language_cd','platform','translation','target_char_limit', ...]
+        """
+        if not isinstance(formatted, pd.DataFrame):
+            return {"ok": True, "issues": [], "stats": {}}
 
-        ## Find the row, and update the status, based on row fingerprint, and status
-        ###TODO
-        ## row = sh.find()
-        ## col = #should be established
-        #self.sh.update("",self.tracker.overall_status)
+        policy = (self.cfg or {}).get("char_limit_policy", "").lower()
+        strict = (policy == "strict")
 
-        ## Send email
-        ## self.gc.email??
+        if not strict:
+            # You could add other policies later. For now, only strict is meaningful.
+            return {"ok": True, "issues": [], "stats": {}}
 
-        ## Send Slack message?
+        # compute lengths
+        df = formatted.copy()
+        if "translation" not in df.columns or "target_char_limit" not in df.columns:
+            # If absent, just pass
+            return {"ok": True, "issues": [], "stats": {}}
 
-        ## 
-    #    return
+        df["translation_len"] = df["translation"].fillna("").map(lambda s: len(str(s)))
+        over = df[df["translation_len"] > df["target_char_limit"].astype(int)]
+
+        issues: List[Dict[str, Any]] = []
+        for _, r in over.iterrows():
+            issues.append({
+                "row_idx": r["row_idx"],
+                "language": r.get("language"),
+                "language_cd": r.get("language_cd"),
+                "platform": r.get("platform"),
+                "target_char_limit": int(r["target_char_limit"]),
+                "current_len": int(r["translation_len"]),
+                "en_text": r.get("en_US"),  # if present in your long DF
+                "current_translation": r["translation"],
+            })
+
+        return {
+            "ok": (len(issues) == 0),
+            "issues": issues,
+            "stats": {"overlimit": int(len(issues))},
+        }
+
+    # ---------- QC Repair: re-translate only failing rows ----------
+    def qc_repair(self, formatted: Any, report: Dict[str, Any], attempt: int) -> Any:
+        """
+        Re-translate only rows in report['issues'], per language.
+        Returns a new long DataFrame with updated translations.
+        """
+        if not isinstance(formatted, pd.DataFrame):
+            return formatted
+
+        issues = report.get("issues", [])
+        if not issues:
+            return formatted
+
+        self.tracker.event(f"QC repair (attempt {attempt}): fixing {len(issues)} overlimit rows")
+
+        # Group issues by language so we can call the model per language with a compact JSON payload
+        by_lang: Dict[str, List[Dict[str, Any]]] = {}
+        for it in issues:
+            lang = it.get("language") or it.get("language_cd") or "unknown"
+            by_lang.setdefault(lang, []).append(it)
+
+        # Build and call prompts per language with a *hard* constraint instruction.
+        new_rows: List[Dict[str, Any]] = []
+        for lang, items in by_lang.items():
+            # Build a tiny JSON input of just the broken rows
+            # Using the *same output schema* you expect: [{row_idx, lang_cd: "new text"}]
+            payload = []
+            for it in items:
+                payload.append({
+                    "row_idx": it["row_idx"],
+                    "target_char_limit": it["target_char_limit"],
+                    "en_US": it.get("en_text", ""),  # if you stored English
+                })
+            slug = json.dumps(payload, ensure_ascii=False)
+
+            # Build a stricter prompt: “DO NOT EXCEED N CHARS—hard requirement”
+            # You can reuse your prompt builder with extra constraint text.
+            strict_prompt = self._generate_qc_prompt(lang, slug)
+
+            with self.tracker.child(f"qc_repair:{lang}") as t:
+                with t.step("api_call"):
+                    out_str, usage = self._call_model_batch(strict_prompt)
+                p, c = MLTracker.extract_usage_tokens(usage)
+                t.metrics({"qc.tokens.prompt": p, "qc.tokens.completion": c})
+
+            # Parse the model JSON (same parser you already have)
+            try:
+                fixed_list = self._parse_model_json_block(out_str)
+            except Exception as e:
+                self.tracker.event(f"QC parse failed for {lang}: {e}")
+                continue
+
+            # fixed_list like: [{"row_idx": "...", "<lang_cd>": "new text"}, ...]
+            # Merge back into `formatted` by row_idx + language_cd
+            lang_cd = self.lang_map[lang]
+            fix_df = pd.DataFrame(fixed_list)
+            if "row_idx" in fix_df.columns and lang_cd in fix_df.columns:
+                fix_df = fix_df[["row_idx", lang_cd]].rename(columns={lang_cd: "translation"})
+                fix_df["language"] = lang
+                fix_df["language_cd"] = lang_cd
+                new_rows.append(fix_df)
+
+        if not new_rows:
+            return formatted
+
+        fixes = pd.concat(new_rows, axis=0, ignore_index=True)
+
+        updated = self.apply_translation_fixes(formatted, fixes)
+        """ 
+        # Update formatted (long) by row_idx + language_cd
+        key_cols = ["row_idx", "language_cd"]
+        updated = (
+            formatted.drop(columns=["translation"], errors="ignore")
+            .merge(fixes, on=key_cols, how="left", suffixes=("", "_fix"))
+        )
+        # prefer the fix where present
+        updated["translation"] = updated["translation"].where(updated["translation_fix"].isna(),
+                                                             updated["translation_fix"])
+        updated = updated.drop(columns=["translation_fix"])
+        """
+
+        # (Optional) Rebuild the wide view for logging again
+        try:
+            wide_again, long_again = self._merge_outputs_by_language_wide([df for _, df in updated.groupby("language_cd")])
+            self.unioned_wide = wide_again
+            self.unioned_long = long_again
+            # You may want the QC loop to continue working with the long df:
+            formatted = self.unioned_long.copy()
+            # Re-log artifacts for this attempt:
+            self.tracker.log_artifact_df(self.unioned_long, f"qc/attempt_{attempt}_long.csv")
+            self.tracker.log_artifact_df(self.unioned_wide, f"qc/attempt_{attempt}_wide.csv")
+        except Exception:
+            # If your helper expects a different shape, just continue with the updated long df
+            self.tracker.log_artifact_df(updated, f"qc/attempt_{attempt}_long.csv")
+            formatted = updated
+
+        return formatted
+    
+    def _normalize_lang_col(self,df: pd.DataFrame) -> pd.DataFrame:
+        # tolerate either language_cd or target_lang_cd
+        if "language_cd" in df.columns:
+            return df
+        if "target_lang_cd" in df.columns:
+            return df.rename(columns={"target_lang_cd": "language_cd"})
+        return df
+
+    # formatted: long DF with ['row_idx','language_cd','translation',...]
+    # fixes: DF with new translations for subset rows; must end up as
+    #        ['row_idx','language_cd','translation_fix']
+    def apply_translation_fixes(self, formatted: pd.DataFrame, fixes: pd.DataFrame) -> pd.DataFrame:
+        formatted = self._normalize_lang_col(formatted.copy())
+        fixes = fixes.copy()
+
+        # Ensure fixes has language_cd and a translation_fix column
+        if "language_cd" not in fixes.columns and "target_lang_cd" in fixes.columns:
+            fixes = fixes.rename(columns={"target_lang_cd": "language_cd"})
+
+        # If fixes still lacks language_cd but has a single language, you can inject it:
+        # if "language_cd" not in fixes.columns and "language" in fixes.columns:
+        #     fixes = fixes.rename(columns={"language": "language_cd"})
+
+        # Normalize fix col name
+        if "translation_fix" not in fixes.columns:
+            # typical case: fixes has 'translation' (from parsed model output)
+            if "translation" in fixes.columns:
+                fixes = fixes.rename(columns={"translation": "translation_fix"})
+            elif "translation_fixed" in fixes.columns:   # earlier variant
+                fixes = fixes.rename(columns={"translation_fixed": "translation_fix"})
+            else:
+                # nothing to apply
+                return formatted
+
+        key_cols = ["row_idx", "language_cd"]
+
+        # Sanity: ensure keys exist
+        for k in key_cols:
+            if k not in formatted.columns or k not in fixes.columns:
+                # Nothing to merge if keys missing
+                return formatted
+
+        # DO NOT drop 'translation' before merge; merge fixes to the right
+        updated = formatted.merge(fixes[key_cols + ["translation_fix"]],
+                                on=key_cols, how="left")
+
+        # Prefer fixed where present
+        if "translation_fix" in updated.columns:
+            updated["translation"] = np.where(
+                updated["translation_fix"].notna(),
+                updated["translation_fix"],
+                updated["translation"]
+            )
+            updated = updated.drop(columns=["translation_fix"])
+
+        return updated
+
+    # --- helper: stricter prompt for QC repair ---
+    def _generate_qc_prompt(self, language: str, slug_json: str):
+        """
+        Reuse your style but *enforce* hard char cap.
+        Expect JSON input: [{row_idx, target_char_limit, en_US}]
+        Output JSON: [{row_idx, <lang_cd>: "fixed translation <= limit"}]
+        """
+        lang_cd = self.lang_map[language]
+        base = f"""
+            You are a professional localizer. FIX translations that exceed character limits.
+            HARD REQUIREMENT: The translation for each row MUST be <= target_char_limit characters (count spaces/punctuation).
+            If needed, shorten by rephrasing while keeping meaning & tone. Do NOT omit the meaning.
+
+            Important: Keep placeholders like {ITEM} or <NAME> unchanged in the translation. Copy them exactly as in English.
+
+            Output JSON only, with this schema:
+            [
+              {{ "row_idx": "row_...", "{lang_cd}": "<final translation <= target_char_limit>" }},
+              ...
+            ]
+        """
+        return [
+            {"role": "system", "content": base},
+            {"role": "user", "content": slug_json}
+        ]
 
     def _write_long_results(self, long_df: pd.DataFrame = None):
         
@@ -627,7 +791,7 @@ class ASOLocalizer(LocalizationRun):
         return
     """
 
-    def write_outputs(self, formatted_rows) -> str:
+    def write_outputs(self, formatted_rows=None) -> str:
         """
         formatted_rows comes from _format_results(). For ASO it's {"wide": df, "long": df}.
         We still use the class vars set in _format_results for simplicity.
