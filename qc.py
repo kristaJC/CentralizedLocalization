@@ -1,3 +1,7 @@
+ ### THIS IS ALL FOR PUBLISHING NOT GENERIC 
+
+ 
+ 
  def qc_checks(self, formatted: Any) -> Dict[str, Any]:
         """
         formatted: expected to be a pandas DataFrame in long format with:
@@ -139,6 +143,8 @@
 
         return formatted
     
+
+    ### TODO: Unlikely we have to use this... also, don't worry about long and wide outputs
     def _normalize_lang_col(self,df: pd.DataFrame) -> pd.DataFrame:
         # tolerate either language_cd or target_lang_cd
         if "language_cd" in df.columns:
@@ -200,20 +206,20 @@
     def _generate_qc_prompt(self, language: str, slug_json: str):
         """
         Reuse your style but *enforce* hard char cap.
-        Expect JSON input: [{row_idx, target_char_limit, en_US}]
+        Expect JSON input: [{row_idx, char_limit, en_US}]
         Output JSON: [{row_idx, <lang_cd>: "fixed translation <= limit"}]
         """
         lang_cd = self.lang_map[language]
         base = f"""
-            You are a professional localizer. FIX translations that exceed character limits.
-            HARD REQUIREMENT: The translation for each row MUST be <= target_char_limit characters (count spaces/punctuation).
+            You are a professional localizer. FIX translations that exceed character limits. OR if missing a translation, translate the english phrase to {language}, respecting the char_limit.
+            HARD REQUIREMENT: The translation for each row MUST be <= tchar_limit characters (count spaces/punctuation).
             If needed, shorten by rephrasing while keeping meaning & tone. Do NOT omit the meaning.
 
             Important: Keep placeholders like {ITEM} or <NAME> unchanged in the translation. Copy them exactly as in English.
 
             Output JSON only, with this schema:
             [
-              {{ "row_idx": "row_...", "{lang_cd}": "<final translation <= target_char_limit>" }},
+              {{ "row_idx": "row_...", "{lang_cd}": "<final translation <= char_limit>" }},
               ...
             ]
         """
