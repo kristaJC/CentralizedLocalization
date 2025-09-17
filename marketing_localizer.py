@@ -44,6 +44,7 @@ class MarketingLocalizer(LocalizationRun):
 
         self.required_tabs = self.cfg.get("input", {}).get("required_tabs", [])
         self.char_limit_policy = self.cfg.get("char_limit_policy", "")
+        self.char_limit_column = None
 
         #Get game relevant context set up
         self._get_game_context()
@@ -95,9 +96,18 @@ class MarketingLocalizer(LocalizationRun):
 
 
     def _get_examples(self):
-        self.ex_input = json.dumps(self.df.iloc[0].to_dict())
+        ex = self.df.iloc[0].to_dict()
+        for header in self.df.columns:
+            if "char" in header or "limit" in header:
+                self.char_limit_column = header
+                self.char_limit_policy = 'strict'
+
+        self.ex_input = json.dumps(ex)
         self.token_infer = ""
         self.context_infer = "The english phrase to translate is indicated by the value for key 'en_US'. All other keys in the dict for each row are context and should be used to help inform the translation."
+
+        if self.char_limit_column:
+            self.context_infer += f"Be careful not to exceed the character limit for the language you are translating into. The character limit is denoted in the {self.char_limit_column} field."
 
 
         #self.ex_output = 

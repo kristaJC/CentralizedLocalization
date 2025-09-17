@@ -117,14 +117,14 @@ class ASOLocalizer(LocalizationRun):
                 wksht = self.sh.add_worksheet(tab, rows=400, cols = 50)
 
         # Validate IOS formatting - if no data, leave the worksheet object as None
-        ios_data =  self.ios_wksht.get_all_records()
+        ios_data =  self.ios_wksht.get_all_values()
         ios_rows = len(ios_data)
         if len(ios_data) < 4:
             self.ios_wksht = None
             self.formatted_ios_wksht = None
 
         #Validate Android Formatting
-        android_data =  self.android_wksht.get_all_records()
+        android_data =  self.android_wksht.get_all_values()
         android_rows = len(android_data)
         if len(android_data)<4:
             self.android_wksht = None
