@@ -27,7 +27,7 @@ from base_localizer import LocalizationRun
 from ml_tracker import MLTracker
 
 from general_config import *
-from aso_config import *
+from publishing_config import *
 
 
 EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
@@ -35,7 +35,7 @@ EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
 
 spark = pyspark.sql.SparkSession.builder.getOrCreate()
 
-class ASOLocalizer(LocalizationRun):
+class PublishingLocalizer(LocalizationRun):
 
     def __init__(self, 
                  request, 
@@ -78,9 +78,9 @@ class ASOLocalizer(LocalizationRun):
 
         # Specifics for games
         if game == "Harry Potter: Hogwarts Mystery":
-            self.lang_map = ASO_HP_TARGET_LANGUAGE_MAPPING        
+            self.lang_map = pub_HP_TARGET_LANGUAGE_MAPPING        
         else:
-            self.lang_map = ASO_TARGET_LANGUAGE_MAPPING
+            self.lang_map = pub_TARGET_LANGUAGE_MAPPING
 
         self.game_description = self.general_game_specific_guidelines[game]
         self.languages = list(self.lang_map.keys())
@@ -242,7 +242,7 @@ class ASOLocalizer(LocalizationRun):
         """ Build the prompt by language... prepped should basically be the slug for all of the inputs"""
 
         #TODO - likely need to adjust some information about the example inputs and outputs
-        ASO_EX_INPUT = """
+        pub_EX_INPUT = """
             [
                 {"row_idx": "row_idx_1", "target_char_limit": 30, "en_US": "Super Rainbow Power"}, 
                 {"row_idx": "row_idx_2", "target_char_limit": 50, "en_US": "Match pieces to collect super rainbow cake!"}, 
@@ -250,7 +250,7 @@ class ASOLocalizer(LocalizationRun):
             ]"""
 
 
-        # ASO Guidelines
+        # pub Guidelines
         base = f""""
 
             You are a professional game copy localizer.
@@ -452,7 +452,7 @@ class ASOLocalizer(LocalizationRun):
     
     def _format_results(self, post: list[pd.DataFrame]):
         """
-        Produce both ASO shapes. Return them in a dict so the base will hand
+        Produce both pub shapes. Return them in a dict so the base will hand
         them to write_outputs(formatted_rows).
         """
         wide, long_ = self._merge_outputs_by_language_wide(post)
@@ -460,16 +460,16 @@ class ASOLocalizer(LocalizationRun):
         self.unioned_long = long_
 
         artifacts = {
-            "aso_outputs_wide_preview": wide.head(1000),
-            "aso_outputs_long_preview": long_.head(1000),
-            "aso_output_schema": {
+            "pub_outputs_wide_preview": wide.head(1000),
+            "pub_outputs_long_preview": long_.head(1000),
+            "pub_output_schema": {
                 "wide_columns": list(wide.columns),
                 "long_columns": list(long_.columns),
             },
         }
         if self.cfg.get("log_full_artifacts", False):
-            artifacts["aso_outputs_wide"] = wide
-            artifacts["aso_outputs_long"] = long_
+            artifacts["pub_outputs_wide"] = wide
+            artifacts["pub_outputs_long"] = long_
 
         # Return BOTH for the writer
         ##TODO: we actually want to rebuild the long later
@@ -588,19 +588,7 @@ class ASOLocalizer(LocalizationRun):
         fixes = pd.concat(new_rows, axis=0, ignore_index=True)
 
         updated = self.apply_translation_fixes(formatted, fixes)
-        """ 
-        # Update formatted (long) by row_idx + language_cd
-        key_cols = ["row_idx", "language_cd"]
-        updated = (
-            formatted.drop(columns=["translation"], errors="ignore")
-            .merge(fixes, on=key_cols, how="left", suffixes=("", "_fix"))
-        )
-        # prefer the fix where present
-        updated["translation"] = updated["translation"].where(updated["translation_fix"].isna(),
-                                                             updated["translation_fix"])
-        updated = updated.drop(columns=["translation_fix"])
-        """
-
+        
         # (Optional) Rebuild the wide view for logging again
         try:
             wide_again, long_again = self._merge_outputs_by_language_wide([df for _, df in updated.groupby("language_cd")])
@@ -763,37 +751,10 @@ class ASOLocalizer(LocalizationRun):
 
         return
     
-    
-    """
-    # Probably better to do with the app script after writing everything to the sheet
-    def _write_formatted_results(self):
-
-        if self.ios_wksht:
-            ios_results = self.long_results.loc[(self.long_results['platform']=='ios')]
-            ## Format 
-
-            ### write to sheet
-            #data_range=
-            #out_data
-            #self.ios_wksht.batch_update([{'range':data_range, 'values':out_data}])
-
-
-        if self.android_wksht:
-            android_results = self.long_results.loc[(self.long_results['platform']=='android')]
-
-            ## Format 
-
-            ### write to sheet
-            #data_range=
-            #out_data
-            #self.android_wksht.batch_update([{'range':data_range, 'values':out_data}])
-
-        return
-    """
 
     def write_outputs(self, formatted_rows=None) -> str:
         """
-        formatted_rows comes from _format_results(). For ASO it's {"wide": df, "long": df}.
+        formatted_rows comes from _format_results(). For pub it's {"wide": df, "long": df}.
         We still use the class vars set in _format_results for simplicity.
         """
         # Be tolerant to being called with either dict or None (future-proof).
@@ -806,21 +767,3 @@ class ASOLocalizer(LocalizationRun):
         self._write_wide_results(self.unioned_wide)
         return f"Done writing results to URL {self.sh.url}!"
     
-    """
-    def write_outputs_old(self, post:List[pd.DataFrame])->str: 
-
-        #wide_results, long_results = self.format_results(post) 
-        print("Writing outputs....")
-        print("length long_results", len(long_results))
-       
-        #self.wide_results = wide_results
-        #self.long_results = long_results
-        self._write_long_results(self.unioned_long) 
-        self._write_wide_results(self.unioned_wide)
-        
-        #self._write_formatted_results() 
-        #self._finalize_status_tracking()
-
-        return "Done!"
-
-    """

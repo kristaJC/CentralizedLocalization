@@ -22,9 +22,8 @@ import tiktoken
 
 from base_localizer import LocalizationRun
 from ml_tracker import MLTracker
-#from InGame_Config import *
-from marketing_config import * 
 
+#from marketing_config import * 
 from general_config import *
 
 
@@ -47,7 +46,7 @@ def ensure_ids(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-class MarketingLocalizer(LocalizationRun):
+class GenericLocalizer(LocalizationRun):
 
     def __init__(self, 
                  request, 
@@ -111,22 +110,20 @@ class MarketingLocalizer(LocalizationRun):
         for lang in self.languages:
             lang_map[lang] = ALL_LANGUAGES[lang]
         
-
         self.lang_map = lang_map
         self.lang_cds = list(self.lang_map.values())
   
 
-
     def _get_examples(self):
         ex = self.df.iloc[0].to_dict()
         self.ex_input = json.dumps(ex)
-        self.token_infer = ""
-        self.context_infer = "The english phrase to translate is indicated by the value for key 'en_US'. All other keys in the dict for each row are context and should be used to help inform the translation."
+        #self.token_infer = ""
+        self.context_infer = "The english phrase to translate is indicated by 'en_US'. All other keys in the dict for each row are context and should be used to help inform the translation."
 
         if self.char_limit_policy=='strict':
-            self.context_infer += f"Be careful not to exceed the character limit for the language you are translating into. The character limit is denoted in the 'char_limit' field MUST be respected."
+            self.context_infer += f"Be careful not to exceed the character limit for the translated sentence. The character limit is denoted in the 'char_limit' field MUST be respected."
 
-
+    '''
     def _preprocess_helper(self, rows_df: pd.DataFrame):
         PH_RE = re.compile(r"<[^>]+>|\{[^}]+\}")
         """
@@ -165,17 +162,47 @@ class MarketingLocalizer(LocalizationRun):
         self.payload = json.dumps(payload)
 
         return self.payload
-
+    '''
 
     #TODO: Note, the data as input is redundant 
     def preprocess(self, data:List[str])->str: 
+        PH_RE = re.compile(r"<[^>]+>|\{[^}]+\}")
+        """
+        rows_df must have columns:
+            - row_idx (stable id)
+            - en_US (source)
+            - optional: char_limit (int), context, any other hints
+        """
+        n = len(rows_df)
 
-        prepped =   self._preprocess_helper(self.df)
+        # build compact payload the model needs (ordered!)
+        payload = []
+        for _, r in rows_df.iterrows():
+            en = r.get("en_US", "") or ""
+            item = {
+                "row_idx": r["row_idx"],
+                "en_US": en,
+                # keep payload tiny; include only relevant hints
+            }
+            # include char_limit if present
+            if "char_limit" in rows_df.columns and pd.notna(r["char_limit"]):
+                item["char_limit"] = int(r["char_limit"])
+            # optional per-row context
+            if "context" in rows_df.columns and r.get("context"):
+                item["context"] = str(r["context"])
+            # placeholders list (helps the model self-check)
+            ph = PH_RE.findall(en)
+            if ph:
+                item["placeholders"] = ph
+            # tiny checksum for alignment debugging
+            if "src_hash8" in rows_df.columns and r.get("src_hash8"):
+                item["src_hash8"] = r["src_hash8"]
 
-        ## Convert data to slug....
-        #prepped = json.dumps(self.df.to_dict(orient='records'))
+            payload.append(item)
 
-        return prepped
+        self.prepped = json.dumps(payload)
+
+        return self.prepped
 
     def _get_game_context(self):
         """ Helper function to get relevant context for in game localization for particular game """
@@ -184,8 +211,7 @@ class MarketingLocalizer(LocalizationRun):
         self.lang_specific_guidelines = GENERAL_LANG_SPECIFIC_GUIDELINES
         self.general_game_specific_guidelines = GENERAL_GAME_SPECIFIC_GUIDELINES
         self.game_description = self.general_game_specific_guidelines[game]
-
-        ### still need to set self.lang_map, self.languages, self.lang_cds
+        # All the other stuff was done in 
 
 
     def _generate_prompt_helper(self, 
@@ -305,18 +331,14 @@ class MarketingLocalizer(LocalizationRun):
         response = self.gpt.chat.completions.create(
                 model=MODEL, 
                 messages=prompt,
-                temperature=0.05  # adjust for creativity vs. stability
+                temperature=0.00  # adjust for creativity vs. stability
         )
-    
-        ### call GPT model for translation
-        #GPT chat completions prompt
-        #raw_results = self.gpt_model.
 
         output = response.choices[0].message.content
         usage = response.usage
         return output, usage
 
-    
+    '''
     def _parse_model_json_block(self, raw_output:str)->Dict[str,Any]:
         """
         Cleans and parses a JSON-like string from a model output wrapped in markdown code block.
@@ -348,7 +370,7 @@ class MarketingLocalizer(LocalizationRun):
             except:
                 raise ValueError(f"Could not parse JSON: {e}")
         else:
-            return loaded
+            return loaded'''
 
 
     ### TODO 
@@ -413,6 +435,8 @@ class MarketingLocalizer(LocalizationRun):
     def postprocess(self, 
                     outputs:str)->List[pd.DataFrame]: 
         
+        ##TODO: Remove extraneous columns... we only want row_idx, <language_cd>
+
         postprocessed_dfs = []
         for output in outputs:
             parsed = self._parse_model_json_block(output)
@@ -434,9 +458,11 @@ class MarketingLocalizer(LocalizationRun):
         ### join cols should by by index at this point... or change the output
 
 
+
+        ### Make sure this drops off any extra fields.... we want this all clean like, en_US + languages 
         results = self.df
         for i in post:
-            results = results.merge(i, on=['en_US'],how='left')
+            results = results.merge(i, on=['row_idx'],how='left')
         
         self.results = results[['en_US',*self.lang_cds]]
 

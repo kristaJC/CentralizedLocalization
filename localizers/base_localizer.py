@@ -24,6 +24,9 @@ import tiktoken
 from general_config import *
 from ml_tracker import MLTracker
 
+MODEL = 'gpt-4o'
+TEMP = 0.05
+
 EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
 CENTRAL_SHEET_URL = ""
 
@@ -208,10 +211,6 @@ class LocalizationRun(ABC):
                 self.write_outputs(final_rows)
 
             self.tracker.end(succeeded=True)
-            
-            # Update succesful status in central sheet
-            #optional:Notes
-            #update_status(self.gc, CENTRAL_SHEET_URL, "Requests", self.request   ["RowFingerprint"], "SUCCEEDED", parent_run_id,)
 
             return {"status": "SUCCEEDED", "run_id": parent_run_id}
         except Exception as e:

@@ -12,7 +12,7 @@ hp_lang_order = ['es_LA','de_DE','it_IT','fr_FR','ja_JP','zh_CN','zh_TW','ko_KR'
 long_result_header = ["RowFingerprint","row_idx",'row_id','en_char_limit','game','platform','type_desc','en_US','language','target_lang_cd','target_char_limit','translation',"","","CHAR_COUNT","OVERLIMIT_CHECK"]
 
 
-aso_cfg_example = {
+pub_cfg_example = {
     "input": 
         {
             "required_tabs": ["ios","android"],
@@ -82,7 +82,7 @@ Q_ANDROID= f""" select
     """
 
 
-ASO_TARGET_LANGUAGE_MAPPING = {
+pub_TARGET_LANGUAGE_MAPPING = {
     'Spanish (Latin America)':'es_LA',
     'French':'fr_FR',
     'German':'de_DE',
@@ -95,7 +95,7 @@ ASO_TARGET_LANGUAGE_MAPPING = {
     'Portuguese (Brazil)':'pt_BR',
 }
 
-ASO_HP_TARGET_LANGUAGE_MAPPING = {
+pub_HP_TARGET_LANGUAGE_MAPPING = {
     'Spanish (Latin America)':'es_LA',
     'French':'fr_FR',
     'German':'de_DE',

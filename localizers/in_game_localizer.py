@@ -22,7 +22,7 @@ import tiktoken
 
 from base_localizer import LocalizationRun
 from ml_tracker import MLTracker
-from InGame_Config import * 
+from in_game_config import * 
 
 from general_config import *
 
@@ -80,6 +80,7 @@ class InGameLocalizer(LocalizationRun):
         return self.data
     
     #TODO: Note, the data as input is redundant 
+    #### Maybe make this more flexible like marketing... add a character limit
     def preprocess(self, data:List[str])->str: 
 
         ## Convert data to slug....
