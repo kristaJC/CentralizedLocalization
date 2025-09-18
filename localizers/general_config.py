@@ -41,6 +41,16 @@ GENERAL_LANG_SPECIFIC_GUIDELINES = {
         - "Start now!" → "¡Empieza ahora!"
         - "Complete Card Sets!" → "¡Completa los conjuntos!" """,
 
+    'Spanish': """
+        - Use informal tú-form
+        - Keep copy natural, short, and punchy
+        - Avoid expanded forms like “¡El evento ha comenzado!” — favor direct verbs
+
+        Examples:
+        - "Start now!" → "¡Empieza ahora!"
+        - "Complete Card Sets!" → "¡Completa los conjuntos!" """,
+
+
     'Spanish (Latin America)':""" 
         - Tone: Informal (tú or neutral imperatives), playful, and lively. 
         - Style: Engaging, warm, and upbeat. 
@@ -253,9 +263,11 @@ GENERAL_GAME_SPECIFIC_GUIDELINES = {
 ALL_LANGUAGES = {
     "Japanese": "ja",
     "French": "fr",
+    "French (France)":"fr-FR",
     "Italian": "it",
     "German": "de",
     "Spanish (Spain)": "es-ES",
+    "Spanish":"es-ES",
     "Korean": "ko",
     "Danish": "da",
     "Swedish": "sv",

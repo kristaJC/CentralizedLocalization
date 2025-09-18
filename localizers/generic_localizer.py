@@ -89,6 +89,8 @@ class GenericLocalizer(LocalizationRun):
     
     def load_inputs(self):
 
+        self.validate_inputs()
+
         data = self.wksht.get_all_values()
         self.input_headers = data.pop(0)
         #self.data = data
@@ -112,57 +114,19 @@ class GenericLocalizer(LocalizationRun):
         
         self.lang_map = lang_map
         self.lang_cds = list(self.lang_map.values())
+
+        return
   
 
     def _get_examples(self):
         ex = self.df.iloc[0].to_dict()
         self.ex_input = json.dumps(ex)
-        #self.token_infer = ""
-        self.context_infer = "The english phrase to translate is indicated by 'en_US'. All other keys in the dict for each row are context and should be used to help inform the translation."
+        self.context_infer = """The english phrase to translate is indicated by 'en_US'. All other keys in the dict for each row are context and should be used to help inform the translation."""
 
         if self.char_limit_policy=='strict':
-            self.context_infer += f"Be careful not to exceed the character limit for the translated sentence. The character limit is denoted in the 'char_limit' field MUST be respected."
+            self.context_infer += """Be careful not to exceed the character limit for the translated sentence. The character limit is denoted in the 'char_limit' field MUST be respected."""
 
-    '''
-    def _preprocess_helper(self, rows_df: pd.DataFrame):
-        PH_RE = re.compile(r"<[^>]+>|\{[^}]+\}")
-        """
-        rows_df must have columns:
-            - row_idx (stable id)
-            - en_US (source)
-            - optional: char_limit (int), context, any other hints
-        """
-        n = len(rows_df)
-
-        # build compact payload the model needs (ordered!)
-        payload = []
-        for _, r in rows_df.iterrows():
-            en = r.get("en_US", "") or ""
-            item = {
-                "row_idx": r["row_idx"],
-                "en_US": en,
-                # keep payload tiny; include only relevant hints
-            }
-            # include char_limit if present
-            if "char_limit" in rows_df.columns and pd.notna(r["char_limit"]):
-                item["char_limit"] = int(r["char_limit"])
-            # optional per-row context
-            if "context" in rows_df.columns and r.get("context"):
-                item["context"] = str(r["context"])
-            # placeholders list (helps the model self-check)
-            ph = PH_RE.findall(en)
-            if ph:
-                item["placeholders"] = ph
-            # tiny checksum for alignment debugging
-            if "src_hash8" in rows_df.columns and r.get("src_hash8"):
-                item["src_hash8"] = r["src_hash8"]
-
-            payload.append(item)
-
-        self.payload = json.dumps(payload)
-
-        return self.payload
-    '''
+        return
 
     #TODO: Note, the data as input is redundant 
     def preprocess(self, data:List[str])->str: 
@@ -173,29 +137,35 @@ class GenericLocalizer(LocalizationRun):
             - en_US (source)
             - optional: char_limit (int), context, any other hints
         """
-        n = len(rows_df)
-
+        n = len(self.df)
+    
+        self.df["char_limit"] = pd.to_numeric(self.df["char_limit"], errors="coerce")
+     
         # build compact payload the model needs (ordered!)
         payload = []
-        for _, r in rows_df.iterrows():
+        for _, r in self.df.iterrows():
             en = r.get("en_US", "") or ""
             item = {
                 "row_idx": r["row_idx"],
                 "en_US": en,
                 # keep payload tiny; include only relevant hints
             }
+            # include char_limit only if it’s a finite number
+            limit = r.get("char_limit")
+            if pd.notna(limit):
+                item["char_limit"] = int(limit)
             # include char_limit if present
-            if "char_limit" in rows_df.columns and pd.notna(r["char_limit"]):
-                item["char_limit"] = int(r["char_limit"])
+            #if "char_limit" in self.df.columns and pd.notna(r["char_limit"]):
+            #    item["char_limit"] = int(r["char_limit"])
             # optional per-row context
-            if "context" in rows_df.columns and r.get("context"):
+            if "context" in self.df.columns and r.get("context"):
                 item["context"] = str(r["context"])
             # placeholders list (helps the model self-check)
             ph = PH_RE.findall(en)
             if ph:
                 item["placeholders"] = ph
             # tiny checksum for alignment debugging
-            if "src_hash8" in rows_df.columns and r.get("src_hash8"):
+            if "src_hash8" in self.df.columns and r.get("src_hash8"):
                 item["src_hash8"] = r["src_hash8"]
 
             payload.append(item)
@@ -221,11 +191,12 @@ class GenericLocalizer(LocalizationRun):
         
         
         self._get_examples()
+        self._get_languages()
 
         n = len(self.df)
-        lang_cd = self.language_map[language]
+        lang_cd = self.lang_map[language]
 
-        new_base = f"""
+        base = f"""
             You are a professional game localizer translating for a popular mobile puzzle game called {self.game} by Jam City which is described as:
             {self.game_description}
 
@@ -457,14 +428,18 @@ class GenericLocalizer(LocalizationRun):
 
         ### join cols should by by index at this point... or change the output
 
-
+        processed_groups = dict(zip(self.lang_cds, post))
 
         ### Make sure this drops off any extra fields.... we want this all clean like, en_US + languages 
-        results = self.df
-        for i in post:
-            results = results.merge(i, on=['row_idx'],how='left')
+        results = self.df.copy()
+        for lang,df in processed_groups.items():
+            results = results.merge(df[['row_idx',lang]],on = ["row_idx"], how='left')
         
-        self.results = results[['en_US',*self.lang_cds]]
+        select_cols = ['en_US',*self.lang_cds]
+        if self.char_limit_policy=='strict':
+            select_cols = ['en_US','char_limit',*self.lang_cds]
+            
+        self.results = results[select_cols].fillna({'char_limit':""})
 
         return self.results
     
