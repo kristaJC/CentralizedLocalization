@@ -293,12 +293,11 @@ class PublishingLocalizer(LocalizationRun):
             - Return results in JSON format.
 
             --- Input Description and Examples ---
-            Each row includes a 'row_idx' which is a unique identifier for the row. The 'target_char_limit' is the maximum number of characters allowed for the translated phrase and must ALWAYS be respected in the translated text. The 'en_US' field is the English phrase to translate.
-
+            Each row includes a 'row_idx' which is a unique identifier for the row. The 'target_char_limit' is the maximum number of characters allowed for the translated phrase and must ALWAYS be respected in the translated text. The 'en_US' field is the English phrase to translate."""
+            
+        base += """
             ---- Handling Placeholders  ---
-            Important: Keep placeholders like {ITEM} or <NAME> unchanged in the translation. Copy them exactly as in English.
-
-            """
+            Important: Keep placeholders like {game} or <NAME> unchanged in the translation. Copy them exactly as in English."""
 
         base+= f"""
         
@@ -434,9 +433,11 @@ class PublishingLocalizer(LocalizationRun):
         parsed_postprocessed_wide, parsed_postprocessed_long = self._helper_parse_row_idx(post)
 
         #Start with the initial English input df, merge with each language df
-        unioned_wide = self._helper_long_inputs_for_merge()
+        unioned_wide_og = self._helper_long_inputs_for_merge()
+        unioned_wide = unioned_wide_og.copy()
         for df in parsed_postprocessed_wide:
-            unioned_wide = unioned_wide.merge(df.drop(columns = ['row_idx','language_cd']), on= ['row_id','platform','game','en_char_limit'],how='left')
+            df = df.drop(columns = ['row_idx','language_cd']),
+            unioned_wide = unioned_wide.merge(df, on= ['row_id','platform','game','en_char_limit'],how='left')
         
 
         # Merge post processed dfs with init prepped dfs, add to a holder
