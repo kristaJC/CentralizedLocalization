@@ -231,6 +231,87 @@ GENERAL_LANG_SPECIFIC_GUIDELINES = {
         - Style: Light and friendly. 
         - Notes: Avoid overly formal or literary Malay; stick to modern, simple phrasing.""",
 
+    'Vietnamese':"""
+        Tone and Style:
+        Friendly, natural, and conversational — similar to how people speak in everyday life. Avoid overly formal or literal translations. Use inclusive, simple phrasing that feels casual and engaging for a gaming audience.
+
+        Key Notes:
+            •	Prioritize clarity and flow over strict word-for-word translation.
+            •	Use active voice and keep sentences concise.
+            •	Avoid excessive use of loanwords from English unless they are widely recognized in gaming (e.g., “combo”, “level”, “boss”).
+            •	Maintain appropriate tone depending on character personality — cheerful for mascots, polite but lively for system messages.
+            •	Be mindful of spacing and diacritics to ensure proper rendering in-game.
+
+        Example:
+        EN: “Let’s blast some bubbles!”
+        → VI: “Cùng bắn bong bóng nào!” (Natural, energetic phrasing)""",
+
+    "Dutch (Netherlands)":"""
+        Tone and Style:
+        Casual, upbeat, and slightly playful, but not childish. Use natural Dutch phrasing that reads smoothly — avoid over-translating idioms or sticking too closely to English syntax.
+
+        Key Notes:
+            •	Keep the tone lighthearted and fun, matching a friendly mobile gaming experience.
+            •	Use contractions and natural expressions (e.g., “’t is tijd om te spelen!” instead of “Het is tijd om te spelen!” when space allows).
+            •	Avoid direct Anglicisms unless they are common in gaming (e.g., “level”, “booster”, “combo”).
+            •	Balance humor with clarity; avoid slang that could alienate non-Dutch speakers in Belgium.
+            •	Pay attention to gender-neutral phrasing when possible.
+
+        Example:
+        EN: “Pop all the bubbles to win!”
+        → NL: “Knal alle bubbels om te winnen!” (Lively and idiomatic)
+
+        ⸻
+
+        Would you like me to align these with the same structure and phrasing style used in your existing guidelines (e.g., same bullet and section formatting for consistency)? I can rewrite them to match perfectly.  
+    """,
+    "Polish": """
+        - Tone: Informal (ty), energetic, and engaging.
+        - Style: Short, punchy, and game-like. Avoid overly formal or literal phrasing.
+        - Notes: Use clear imperatives (Graj, Zbieraj, Wygraj) and natural Polish word order. 
+                Avoid overly long sentences or stiff expressions.
+
+        Examples:
+        - "Start now!" → "Zacznij teraz!"
+        - "Collect rewards!" → "Zbieraj nagrody!"
+        - "Win big prizes!" → "Wygraj wielkie nagrody!"
+    """,
+
+    "Hindi": """
+        - Tone: Friendly, energetic, and motivational. Use simple, everyday Hindi.
+        - Style: Short and playful. Mix light colloquial tone with clarity — avoid overly Sanskritized forms.
+        - Notes: Use direct imperatives (शुरू करो!, खेलो!, जीत लो!) and avoid passive constructions.
+                Retain key game terms in English (e.g., "level", "combo") where natural.
+
+        Examples:
+        - "Start now!" → "अभी शुरू करो!"
+        - "Play now!" → "अभी खेलो!"
+        - "Win rewards!" → "इनाम जीत लो!"
+    """,
+
+    "English (Great Britain)": """
+        - Tone: Friendly, natural, and upbeat. 
+        - Style: Clear, concise, and conversational — use British spelling (e.g., “favourite,” “colour,” “centre”). 
+        - Notes: Avoid Americanisms and overly casual slang; keep phrasing natural for UK players.
+                    Use simple action-oriented CTAs like “Play now!”, “Join the event!”, “Collect rewards!”
+
+        Examples:
+        - "Start now!" → "Start now!"
+        - "Collect rewards!" → "Collect rewards!"
+        - "Win big prizes!" → "Win big prizes!"
+    """,
+
+    "Hebrew": """
+        - Tone: Informal and engaging; use second-person masculine/feminine as contextually appropriate.
+        - Style: Energetic, direct, and clear. Keep phrasing short and natural for mobile UI.
+        - Notes: Prefer active imperatives (שחקו, התחילו, אספו). Avoid stiff or overly formal phrasing.
+                    Maintain correct directionality (RTL) and punctuation spacing.
+
+        Examples:
+        - "Start now!" → "התחילו עכשיו!"
+        - "Collect cards!" → "אספו קלפים!"
+        - "Win rewards!" → "זכו בפרסים!"
+    """,
 }
 
 
@@ -285,5 +366,11 @@ ALL_LANGUAGES = {
     "Malay": "ms",
     "Filipino": "fil",
     "Thai": "th",
-    "Indonesian": "id"
+    "Indonesian": "id",
+    "Vietnamese": "vi",
+    "Dutch (Netherlands)":"nl",
+    "Hindi":"hi"
+    "Polish":"pl"
+    "Hebrew":"he"
+    "English (Great Britain )":"en-GB"
 }
