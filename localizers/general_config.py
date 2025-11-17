@@ -1,6 +1,6 @@
 # Model and experiment cases
 
-EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
+EXPERIMENT_NAME = "/Users/pandreoni@jamcity.com/centralized_loc_translation_run"
 MODEL = 'gpt-4o'
 TEMP = 0.05
 
@@ -17,300 +17,354 @@ DIR = "/Workspace/Users/krista@jamcity.com/CentralizedLocalizationWorkflow/"
 # General guidelines for languages
 GENERAL_LANG_SPECIFIC_GUIDELINES = {
 
-    'French': """
-        - Use informal tu-form
-        - Keep phrasing smooth and playful, but avoid lengthy constructions
-        - Avoid starting phrases with “Les X ont commencé !” unless space allows
-        - Prefer direct imperatives: “Joue !”, “Commence !”, “Découvre !”
-
-        Examples:
-        - "Play now!" → "Joue maintenant !"
-        - "Start the event!" → "Commence l’événement !" (✅ shorter than "L’événement a commencé !")""",
-
-    "French (Canada)":""" 
-        - Tone: Informal (tu), casual, and fun. 
-        - Style: Playful and colloquial, with Canadian French idioms. 
-        - Notes: Avoid European French phrasing; keep Quebec-specific terms (e.g., “cellulaire,” not “portable”).""",
-
-    'Spanish (Spain)': """
-        - Use informal tú-form
-        - Keep copy natural, short, and punchy
-        - Avoid expanded forms like “¡El evento ha comenzado!” — favor direct verbs
-
-        Examples:
-        - "Start now!" → "¡Empieza ahora!"
-        - "Complete Card Sets!" → "¡Completa los conjuntos!" """,
-
-    'Spanish': """
-        - Use informal tú-form
-        - Keep copy natural, short, and punchy
-        - Avoid expanded forms like “¡El evento ha comenzado!” — favor direct verbs
-
-        Examples:
-        - "Start now!" → "¡Empieza ahora!"
-        - "Complete Card Sets!" → "¡Completa los conjuntos!" """,
-
-
-    'Spanish (Latin America)':""" 
-        - Tone: Informal (tú or neutral imperatives), playful, and lively. 
-        - Style: Engaging, warm, and upbeat. 
-        - Notes: Use neutral LatAm vocabulary (avoid Spain-specific terms like “ordenador”). """,
-
-    'Spanish (Colombia)': """ 
-        - Tone: Informal (tú), warm, and inviting. Marketing and gaming copy in Colombia favors approachable, enthusiastic language.
-        - Style: Light, fun, and lively. Regional phrasing makes the text feel more authentic (e.g., “celular” instead of “móvil”). 
-        - Notes: If global Latin American Spanish (es-LA) is used elsewhere, keep es-CO consistent but allow slight flavoring for Colombian users. """,
-
-    'Italian': """
-        - Use informal tone with imperatives: Gioca, Scopri, Vinci
-        - Avoid long clauses and articles unless needed for fluency
-        - Aim for gamey, motivational phrases
-
-        Examples:
-        - "Worlds of Wonder has started!" → "Inizia Mondi Meravigliosi!"
-        - "Get big rewards!" → "Ricevi grandi ricompense!" """,
-
-    'Portuguese (Brazil)': """
-        - Use informal você-form
-        - Keep tone expressive but concise — short, motivating sentences work best
-        - Prefer "Comece já!", "Jogue agora!" over longer passive forms
-
-        Examples:
-        - "The event has started!" → "Comece o evento!"
-        - "Collect cards!" → "Colete cartas!" """,
-
-    'German': """
-        - Use informal du-form
-        - Favor imperatives like Spiele, Entdecke, Gewinne
-        - Avoid overly long noun compounds or trailing verbs where possible
-
-        Examples:
-        - "Start now!" → "Jetzt starten!"
-        - "Collect Cards!" → "Sammle Karten!" """,
-
-    'Russian': """
-        - Always use formal 2nd person plural (вы), uncapitalized
-        - Use polite, clear phrasing — not overly formal or bureaucratic
-        - Mix imperative verbs and noun-based phrasing for balance
-        - Avoid overly long descriptive constructions unless necessary
-
-        Examples:
-        - "Start now!" → "Начните сейчас!"
-        - "Collect Card Sets!" → "Соберите наборы карт!"
-        - Do NOT capitalize "Вы" — neutral form is standard """,
-
-    'Turkish': """
-        - Use informal ‘sen’ form
-        - Keep copy short, motivational, and casual
-        - Avoid wordy structures — prefer "Hemen oyna!" over passive descriptions
-
-        Examples:
-        - "Collect rewards!" → "Ödülleri topla!"
-        - "Start now!" → "Hemen başla!" """,
-
-    'Japanese': """
-        - Use casual-polite phrasing (〜しよう, 〜が登場) appropriate for gacha/puzzle games
-        - Avoid excessive chaining of actions; trim to 1–2 short clauses
-        - Prefer dynamic verbs and game lingo like ゲット, 集めよう
-
-        Examples:
-        - “Collect cards!” → “カードを集めよう！”
-        - “Win big rewards!” → “豪華報酬をゲット！” """,
-
-    'Korean': """
-        - Use casual or semi-formal tone (e.g., -요 form)
-        - Avoid long sentence chains — use imperative encouragement
-        - Use game terms like 보상 (rewards), 모으다 (collect), 시작하다 (start)
-
-        Examples:
-        - “Start now!” → “지금 시작하세요!”
-        - “Complete card sets!” → “카드를 모아 보상 받으세요!” """,
-
-    'Danish': """
-        - Use informal, instructive tone
-        - Prefer short imperatives like Fuldfør, Spil, Saml
-        - Trim long constructions where possible
-
-        Examples:
-        - “Collect rewards!” → “Saml belønninger!”
-        - “Start now!” → “Start nu!” """,
-
-    'Dutch (Netherlands)':"""
-        -Tone: Informal, approachable, and friendly. Use je/jij rather than formal u. 
-        - Style: Casual but not slangy. Dutch players expect direct, enthusiastic language.         
-        - Notes: Dutch tends to be more concise than English. Avoid over-translating gaming terms like “combo” or “level” — they are often left in English. """,
-
-    'Finnish': """ 
-        - Tone: Informal, use “sinä” casually. 
-        - Style: Concise and upbeat. Add a friendly, playful feel. 
-        - Notes: Avoid stiff literal translations; use natural spoken-like Finnish. """,
-
-    'Swedish': """
-        - Use informal, motivational tone
-        - Keep it snappy — trim articles and helpers when unnecessary
-        - Favor direct action: Spela, Samla, Få
-
-        Examples:
-        - “Start the event!” → “Starta evenemanget!”
-        - “Get rewards!” → “Få belöningar!” """,
-
-    'Norwegian': """
-        - Use informal imperatives and energetic tone
-        - Avoid overly long verb chains
-        - Game verbs like Spill, Fullfør, Samle are effective
-
-        Examples:
-        - “Collect cards!” → “Samle kort!”
-        - “Start now!” → “Start nå!” """,
-
-    'Traditional Chinese (Taiwan)': """
-        - Use clear, punchy Mandarin suitable for Taiwan audiences
-        - Favor phrases like 限時, 組合, 獎勵 for game-style copy
-        - Avoid excessive explanatory text
-
-        Examples:
-        - “Complete card sets!” → “完成卡牌組合！”
-        - “Win rewards!” → “獲得獎勵！” """,
-
-    'Traditional Chinese (Hong Kong)': """
-        - Tone: Friendly, casual, slightly cheeky. Use Cantonese-flavored word choice where appropriate, but not slang-heavy. 
-        - Style: Playful and fun. 
-        - Notes: Ensure HK-traditional characters, not Taiwan terms. """,
-    
-    'Simplified Chinese': """
-        - Use short, directive action phrases
-        - Common terms include 限时, 收集, 获得, 卡组
-        - Avoid overly literal or long sentence chaining
-
-        Examples:
-        - “Start now!” → “马上开始！”
-        - “Collect cards for rewards!” → “收集卡牌赢奖励！” """,
-
-    'Arabic': """
-        - Use standard Modern Standard Arabic (MSA) with polite but energetic tone
-        - Avoid overly verbose sentence chaining
-        - Prefer clear imperatives for CTAs (ابدأ، أكمل، اربح)
-        - Keep messages compact and avoid repetition
-
-        Examples:
-        - “Start now!” → “ابدأ الآن!”
-        - “Complete sets for rewards!” → “أكمل المجموعات لتحصل على المكافآت!” """,
-
-    'Turkish': """
-        - Use casual, friendly tone suitable for mobile games
-        - Favor imperative mood verbs like Başla, Tamamla, Topla
-        - Avoid repetitive phrasing like “tamamlamaya devam et” when shorter forms suffice
-        - Keep translations short and visually punchy
-
-        Examples:
-        - “Complete Card Sets!” → “Kart Setlerini Tamamla!”
-        - “Win big rewards!” → “Büyük Ödülleri Kazan!” """,
-    
-    'Thai': """ 
-        -Tone: Polite but casual. Use ครับ/ค่ะ endings where appropriate, but keep it fun. 
-        - Style: Playful, light, and friendly.  
-        - Notes: Avoid stiff, overly formal language. """,
-
-    'Vietnamese': """
-        -Tone: Polite-casual. Use informal, friendly phrasing but keep pronouns respectful (bạn is the safest default). Avoid overly formal or bureaucratic Vietnamese. 
-        - Style: Concise, energetic, and engaging. Overly long sentences should be avoided, as they read awkwardly in mobile UI. 
-        - Notes: Vietnamese is non-inflected for politeness like Japanese/Korean, but pronoun choice matters. Stick with bạn as the player address form in games. """,
-
-    'Filipino': """ 
-        -Tone: Informal, friendly, and fun. 
-        - Style: Casual, lively, and warm. Mixing English with Filipino is common in games (Taglish). 
-        - Notes: Favor modern, playful terms.""",
-
-    'Indonesian': """ 
-        - Tone: Informal (kamu), warm, and casual. 
-        - Style: Fun, lively, and conversational. 
-        - Notes: Avoid heavy formality (e.g., Anda); use natural spoken-like Indonesian. """,
-
-    'Malay': """ 
-        - Tone: Informal, casual, and direct. 
-        - Style: Light and friendly. 
-        - Notes: Avoid overly formal or literary Malay; stick to modern, simple phrasing.""",
-
-    'Vietnamese':"""
-        Tone and Style:
-        Friendly, natural, and conversational — similar to how people speak in everyday life. Avoid overly formal or literal translations. Use inclusive, simple phrasing that feels casual and engaging for a gaming audience.
-
-        Key Notes:
-            •	Prioritize clarity and flow over strict word-for-word translation.
-            •	Use active voice and keep sentences concise.
-            •	Avoid excessive use of loanwords from English unless they are widely recognized in gaming (e.g., “combo”, “level”, “boss”).
-            •	Maintain appropriate tone depending on character personality — cheerful for mascots, polite but lively for system messages.
-            •	Be mindful of spacing and diacritics to ensure proper rendering in-game.
-
-        Example:
-        EN: “Let’s blast some bubbles!”
-        → VI: “Cùng bắn bong bóng nào!” (Natural, energetic phrasing)""",
-
-    "Dutch (Netherlands)":"""
-        Tone and Style:
-        Casual, upbeat, and slightly playful, but not childish. Use natural Dutch phrasing that reads smoothly — avoid over-translating idioms or sticking too closely to English syntax.
-
-        Key Notes:
-            •	Keep the tone lighthearted and fun, matching a friendly mobile gaming experience.
-            •	Use contractions and natural expressions (e.g., “’t is tijd om te spelen!” instead of “Het is tijd om te spelen!” when space allows).
-            •	Avoid direct Anglicisms unless they are common in gaming (e.g., “level”, “booster”, “combo”).
-            •	Balance humor with clarity; avoid slang that could alienate non-Dutch speakers in Belgium.
-            •	Pay attention to gender-neutral phrasing when possible.
-
-        Example:
-        EN: “Pop all the bubbles to win!”
-        → NL: “Knal alle bubbels om te winnen!” (Lively and idiomatic)
-
-        ⸻
-
-        Would you like me to align these with the same structure and phrasing style used in your existing guidelines (e.g., same bullet and section formatting for consistency)? I can rewrite them to match perfectly.  
-    """,
-    "Polish": """
-        - Tone: Informal (ty), energetic, and engaging.
-        - Style: Short, punchy, and game-like. Avoid overly formal or literal phrasing.
-        - Notes: Use clear imperatives (Graj, Zbieraj, Wygraj) and natural Polish word order. 
-                Avoid overly long sentences or stiff expressions.
-
-        Examples:
-        - "Start now!" → "Zacznij teraz!"
-        - "Collect rewards!" → "Zbieraj nagrody!"
-        - "Win big prizes!" → "Wygraj wielkie nagrody!"
-    """,
-
-    "Hindi": """
-        - Tone: Friendly, energetic, and motivational. Use simple, everyday Hindi.
-        - Style: Short and playful. Mix light colloquial tone with clarity — avoid overly Sanskritized forms.
-        - Notes: Use direct imperatives (शुरू करो!, खेलो!, जीत लो!) and avoid passive constructions.
-                Retain key game terms in English (e.g., "level", "combo") where natural.
-
-        Examples:
-        - "Start now!" → "अभी शुरू करो!"
-        - "Play now!" → "अभी खेलो!"
-        - "Win rewards!" → "इनाम जीत लो!"
-    """,
-
     "English (Great Britain)": """
-        - Tone: Friendly, natural, and upbeat. 
-        - Style: Clear, concise, and conversational — use British spelling (e.g., “favourite,” “colour,” “centre”). 
-        - Notes: Avoid Americanisms and overly casual slang; keep phrasing natural for UK players.
-                    Use simple action-oriented CTAs like “Play now!”, “Join the event!”, “Collect rewards!”
-
+        Tone:
+            Friendly, natural, and upbeat.
+        Style:
+            Clear, concise, and conversational — use British spelling (e.g., “favourite,” “colour,” “centre”).
+        Notes:
+            Avoid Americanisms and overly casual slang; keep phrasing natural for UK players.
+            Use simple action-oriented CTAs like “Play now!”, “Join the event!”, “Collect rewards!”
         Examples:
-        - "Start now!" → "Start now!"
-        - "Collect rewards!" → "Collect rewards!"
-        - "Win big prizes!" → "Win big prizes!"
+            - "Start now!" → "Start now!"
+            - "Collect rewards!" → "Collect rewards!"
+            - "Win big prizes!" → "Win big prizes!"
+    """,
+
+    "French": """
+        Tone:
+            Informal (tu-form).
+        Style:
+            Smooth and playful, but avoid lengthy constructions.
+        Notes:
+            Avoid starting phrases with “Les X ont commencé !” unless space allows.
+            Prefer direct imperatives like “Joue !”, “Commence !”, “Découvre !”.
+        Examples:
+            - "Play now!" → "Joue maintenant !"
+            - "Start the event!" → "Commence l’événement !"
+    """,
+
+    "French (Canada)": """
+        Tone:
+            Informal (tu), casual, and fun.
+        Style:
+            Playful and colloquial, with Canadian French idioms.
+        Notes:
+            Avoid European French phrasing; use Quebec-specific terms (e.g., “cellulaire,” not “portable”).
+    """,
+
+    "Spanish (Spain)": """
+        Tone:
+            Informal (tú).
+        Style:
+            Natural, short, and punchy.
+        Notes:
+            Avoid expanded forms like “¡El evento ha comenzado!” — favor direct verbs.
+        Examples:
+            - "Start now!" → "¡Empieza ahora!"
+            - "Complete Card Sets!" → "¡Completa los conjuntos!"
+    """,
+
+    "Spanish (Latin America)": """
+        Tone:
+            Informal (tú or neutral imperatives), playful, and lively.
+        Style:
+            Engaging, warm, and upbeat.
+        Notes:
+            Use neutral LatAm vocabulary (avoid Spain-specific terms like “ordenador”).
+        Examples:
+            - "Start now!" → "¡Empieza ahora!"
+            - "Complete Card Sets!" → "¡Completa los conjuntos!"
+    """,
+
+    "Spanish (Colombia)": """
+        Tone:
+            Informal (tú), warm, and inviting.
+        Style:
+            Light, fun, and lively.
+        Notes:
+            Use regional phrasing like “celular” instead of “móvil.”
+            Stay aligned with es-LA consistency, but allow slight flavoring for Colombian users.
+    """,
+
+    "Italian": """
+        Tone:
+            Informal and motivational.
+        Style:
+            Use imperatives like Gioca, Scopri, Vinci.
+            Avoid long clauses and unnecessary articles.
+        Notes:
+            Keep phrasing gamey and energetic.
+        Examples:
+            - "Worlds of Wonder has started!" → "Inizia Mondi Meravigliosi!"
+            - "Get big rewards!" → "Ricevi grandi ricompense!"
+    """,
+
+    "Portuguese (Brazil)": """
+        Tone:
+            Informal (você-form).
+        Style:
+            Expressive but concise — short, motivating sentences work best.
+        Notes:
+            Prefer "Comece já!" and "Jogue agora!" over longer passive forms.
+        Examples:
+            - "The event has started!" → "Comece o evento!"
+            - "Collect cards!" → "Colete cartas!"
+    """,
+
+    "German": """
+        Tone:
+            Informal (du-form).
+        Style:
+            Direct and motivational; favor imperatives like Spiele, Entdecke, Gewinne.
+        Notes:
+            Avoid overly long noun compounds or trailing verbs where possible.
+        Examples:
+            - "Start now!" → "Jetzt starten!"
+            - "Collect cards!" → "Sammle Karten!"
+    """,
+
+    "Polish": """
+        Tone:
+            Informal (ty), energetic, and engaging.
+        Style:
+            Short, punchy, and game-like.
+        Notes:
+            Use clear imperatives (Graj, Zbieraj, Wygraj) and natural Polish word order.
+            Avoid overly long sentences or stiff expressions.
+        Examples:
+            - "Start now!" → "Zacznij teraz!"
+            - "Collect rewards!" → "Zbieraj nagrody!"
+            - "Win big prizes!" → "Wygraj wielkie nagrody!"
+    """,
+
+    "Russian": """
+        Tone:
+            Formal 2nd person plural (вы), uncapitalized.
+        Style:
+            Polite and clear, not bureaucratic.
+        Notes:
+            Mix imperative and noun-based phrasing for balance.
+            Avoid long descriptive constructions.
+        Examples:
+            - "Start now!" → "Начните сейчас!"
+            - "Collect Card Sets!" → "Соберите наборы карт!"
+    """,
+
+    "Turkish": """
+        Tone:
+            Informal (sen), casual, and friendly.
+        Style:
+            Short, motivational, and visually punchy.
+        Notes:
+            Favor imperative verbs like Başla, Tamamla, Topla.
+            Avoid repetitive phrasing like “tamamlamaya devam et.”
+        Examples:
+            - “Complete Card Sets!” → “Kart Setlerini Tamamla!”
+            - “Win big rewards!” → “Büyük Ödülleri Kazan!”
+    """,
+
+    "Japanese": """
+        Tone:
+            Casual-polite (〜しよう, 〜が登場).
+        Style:
+            Dynamic, concise, and gacha-friendly.
+        Notes:
+            Avoid chaining too many clauses; favor short, high-energy verbs like ゲット, 集めよう.
+        Examples:
+            - “Collect cards!” → “カードを集めよう！”
+            - “Win big rewards!” → “豪華報酬をゲット！”
+    """,
+
+    "Korean": """
+        Tone:
+            Casual or semi-formal (-요 form).
+        Style:
+            Encouraging and direct.
+        Notes:
+            Use game terms like 보상 (rewards), 모으다 (collect), 시작하다 (start).
+        Examples:
+            - “Start now!” → “지금 시작하세요!”
+            - “Complete card sets!” → “카드를 모아 보상 받으세요!”
+    """,
+
+    "Danish": """
+        Tone:
+            Informal and instructive.
+        Style:
+            Short imperatives like Fuldfør, Spil, Saml.
+        Notes:
+            Trim long constructions where possible.
+        Examples:
+            - “Collect rewards!” → “Saml belønninger!”
+            - “Start now!” → “Start nu!”
+    """,
+
+    "Dutch (Netherlands)": """
+        Tone:
+            Informal, approachable, and friendly (je/jij).
+        Style:
+            Casual, upbeat, and slightly playful, but not childish.
+        Notes:
+            Keep tone lighthearted and use natural Dutch phrasing.
+            Avoid over-translating gaming terms like “combo” or “level.”
+        Examples:
+            - “Pop all the bubbles to win!” → “Knal alle bubbels om te winnen!”
+    """,
+
+    "Finnish": """
+        Tone:
+            Informal (sinä), friendly, and playful.
+        Style:
+            Concise and upbeat.
+        Notes:
+            Avoid stiff literal translations; use natural spoken Finnish.
+    """,
+
+    "Swedish": """
+        Tone:
+            Informal and motivational.
+        Style:
+            Snappy and direct.
+        Notes:
+            Trim unnecessary articles and helpers.
+        Examples:
+            - “Start the event!” → “Starta evenemanget!”
+            - “Get rewards!” → “Få belöningar!”
+    """,
+
+    "Norwegian": """
+        Tone:
+            Informal and energetic.
+        Style:
+            Use imperatives like Spill, Fullfør, Samle.
+        Notes:
+            Avoid overly long verb chains.
+        Examples:
+            - “Collect cards!” → “Samle kort!”
+            - “Start now!” → “Start nå!”
+    """,
+
+    "Traditional Chinese (Taiwan)": """
+        Tone:
+            Clear and punchy Mandarin.
+        Style:
+            Direct and compact for mobile UI.
+        Notes:
+            Use phrases like 限時, 組合, 獎勵; avoid excess explanations.
+        Examples:
+            - “Complete card sets!” → “完成卡牌組合！”
+            - “Win rewards!” → “獲得獎勵！”
+    """,
+
+    "Traditional Chinese (Hong Kong)": """
+        Tone:
+            Friendly, casual, slightly cheeky.
+        Style:
+            Playful and fun.
+        Notes:
+            Use Hong Kong-specific traditional characters (not Taiwan forms).
+            Add light Cantonese flavor without heavy slang.
+    """,
+
+    "Simplified Chinese": """
+        Tone:
+            Direct and engaging.
+        Style:
+            Use short, action-driven phrasing.
+        Notes:
+            Include key terms like 限时, 收集, 获得, 卡组.
+        Examples:
+            - “Start now!” → “马上开始！”
+            - “Collect cards for rewards!” → “收集卡牌赢奖励！”
+    """,
+
+    "Arabic": """
+        Tone:
+            Polite yet energetic (Modern Standard Arabic).
+        Style:
+            Compact and direct with imperative CTAs.
+        Notes:
+            Avoid verbose or repetitive phrasing.
+        Examples:
+            - “Start now!” → “ابدأ الآن!”
+            - “Complete sets for rewards!” → “أكمل المجموعات لتحصل على المكافآت!”
     """,
 
     "Hebrew": """
-        - Tone: Informal and engaging; use second-person masculine/feminine as contextually appropriate.
-        - Style: Energetic, direct, and clear. Keep phrasing short and natural for mobile UI.
-        - Notes: Prefer active imperatives (שחקו, התחילו, אספו). Avoid stiff or overly formal phrasing.
-                    Maintain correct directionality (RTL) and punctuation spacing.
-
+        Tone:
+            Informal and engaging.
+        Style:
+            Energetic, direct, and natural for mobile.
+        Notes:
+            Use masculine/feminine forms as contextually appropriate.
+            Maintain correct RTL direction and spacing.
         Examples:
-        - "Start now!" → "התחילו עכשיו!"
-        - "Collect cards!" → "אספו קלפים!"
-        - "Win rewards!" → "זכו בפרסים!"
+            - “Start now!” → “התחילו עכשיו!”
+            - “Collect cards!” → “אספו קלפים!”
+            - “Win rewards!” → “זכו בפרסים!”
+    """,
+
+    "Thai": """
+        Tone:
+            Polite but casual.
+        Style:
+            Playful, light, and friendly.
+        Notes:
+            Use ครับ/ค่ะ endings where appropriate; avoid stiff formal language.
+    """,
+
+    "Vietnamese": """
+        Tone:
+            Friendly, natural, and conversational.
+        Style:
+            Concise, energetic, and engaging.
+        Notes:
+            Use bạn for player address; avoid overly formal phrasing.
+            Use active voice; avoid long or literal translations.
+        Examples:
+            - “Let’s blast some bubbles!” → “Cùng bắn bong bóng nào!”
+    """,
+
+    "Filipino": """
+        Tone:
+            Informal, friendly, and fun.
+        Style:
+            Casual and lively; Taglish (English + Filipino) acceptable.
+        Notes:
+            Favor modern, playful phrasing that feels natural.
+    """,
+
+    "Indonesian": """
+        Tone:
+            Informal (kamu), warm, and casual.
+        Style:
+            Fun, lively, and conversational.
+        Notes:
+            Avoid heavy formality (e.g., Anda); keep phrasing spoken-like.
+    """,
+
+    "Malay": """
+        Tone:
+            Informal, casual, and direct.
+        Style:
+            Light and friendly.
+        Notes:
+            Avoid overly formal or literary Malay; prefer modern phrasing.
+    """,
+
+    "Hindi": """
+        Tone:
+            Friendly, energetic, and motivational.
+        Style:
+            Short, playful, and natural.
+        Notes:
+            Use direct imperatives (शुरू करो!, खेलो!, जीत लो!) and avoid passive constructions.
+            Retain common English game terms like “level” or “combo.”
+        Examples:
+            - “Start now!” → “अभी शुरू करो!”
+            - “Play now!” → “अभी खेलो!”
+            - “Win rewards!” → “इनाम जीत लो!”
     """,
 }
 
@@ -369,8 +423,8 @@ ALL_LANGUAGES = {
     "Indonesian": "id",
     "Vietnamese": "vi",
     "Dutch (Netherlands)":"nl",
-    "Hindi":"hi"
-    "Polish":"pl"
-    "Hebrew":"he"
-    "English (Great Britain )":"en-GB"
+    "Hindi":"hi",
+    "Polish":"pl",
+    "Hebrew":"he",
+    "English (Great Britain)":"en-GB",
 }

@@ -379,10 +379,14 @@ class PublishingLocalizer(LocalizationRun):
     def _helper_long_inputs_for_merge(self):
 
         ### Get init data
-        if self.android_long_df:
+        # PA 2025-11-11: changed to conisder the option that ios df is None. -->
+        if self.android_long_df and self.ios_long_df:
             unioned_inputs = pd.concat([self.ios_long_df.toPandas(), self.android_long_df.toPandas()])
+        elif self.android_long_df:
+            unioned_inputs = self.android_long_df.toPandas()
         else:
             unioned_inputs = self.ios_long_df.toPandas()
+        # PA 2025-11-11: changed to conisder the option that ios df is None. <--
 
         #unioned_inputs['row_id'] = unioned_inputs['row_id'].astype(int)
 

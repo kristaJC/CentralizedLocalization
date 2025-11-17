@@ -27,7 +27,7 @@ from ml_tracker import MLTracker
 MODEL = 'gpt-4o'
 TEMP = 0.05
 
-EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
+EXPERIMENT_NAME = "/Users/pandreoni@jamcity.com/centralized_loc_translation_run"
 CENTRAL_SHEET_URL = ""
 
 ### Helper function to update the status
@@ -82,7 +82,9 @@ class LocalizationRun(ABC):
             # Strip markdown-style code block markers like ```json ... ```
             cleaned = re.sub(r"^```json|```$", "", raw_output.strip(), flags=re.IGNORECASE).strip()
             # Remove escaped newlines
-            cleaned = cleaned.replace("\\n", "").replace("\n", "").strip()
+            # PA 2025-11-06: TEMPORARY FIX, NEEDS MORE ANALYSIS - example: "<size=150%> %v0% \n<size=100%>off!". -->
+            #cleaned = cleaned.replace("\\n", "").replace("\n", "").strip()
+            # PA 2025-11-06: TEMPORARY FIX, NEEDS MORE ANALYSIS - example: "<size=150%> %v0% \n<size=100%>off!". <--
             loaded = json.loads(cleaned)
         except Exception as e:
             raise ValueError(f"Could not parse JSON: {e}")
