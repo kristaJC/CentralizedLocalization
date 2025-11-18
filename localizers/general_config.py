@@ -5,13 +5,51 @@ MODEL = 'gpt-4o'
 TEMP = 0.05
 
 
-
 # Tracking spreadsheet for all requests
 CENTRALIZED_SHEET_URL = "https://docs.google.com/spreadsheets/d/13IqPWBFqoZwALTbYLSeEn_pGYLWOXIkNNN2Y2yyzj48/edit?gid=0#gid=0"
 
 # Directory where notebooks are stored
 DIR = "/Workspace/Users/krista@jamcity.com/CentralizedLocalizationWorkflow/" 
 
+GENERIC_LOC_CFG = {
+    "input": {"required_tabs": ["input","output"]},
+    "char_limit_policy": "strict",
+}
+
+INGAME_LOC_CFG = {
+    "input": {"required_tabs": ["input","output"], 
+              "input_headers": ['token', 'context', 'en_US'], 
+              "output_headers": ['token','en_US','ja','fr',
+                'it','de','es','ko','da','sv','no','zh-TW',
+                'zh-CN','pt-BR','ru','ar','tr']
+    },
+    "char_limit_policy": "strict",
+    "tracking_sheet_url": "",
+}
+
+PUBLISHING_LOC_CFG = {
+    "input": 
+        {
+            "required_tabs": ["ios","android"],
+            "ios_header_rows": 3, 
+            "android_header_rows": 3
+        },
+    ##add more formatting data for header rows
+    "char_limit_policy": "strict",
+    "output_sheets":
+        ["formatted ios", "formatted android", "long results",'wide results'],
+    ##add more formatting info for output sheets
+    "qc": 
+        {
+            "enabled": True, 
+            "max_retries": 5,
+        }
+}
+
+MARKETING_LOC_CFG = {
+    "input": {"required_tabs": ["input","output"]},
+    "char_limit_policy": "strict",
+}
 
 
 # General guidelines for languages

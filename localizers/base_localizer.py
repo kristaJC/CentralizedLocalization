@@ -51,6 +51,14 @@ def update_status(gc, sheet_url, tab, row_fingerprint, status, run_id=None, note
     set_cell("Notes", (notes or "")[:500])
     set_cell("LastUpdated", datetime.datetime.utcnow().isoformat())
 
+def ensure_ids(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    if "row_idx" not in out.columns:
+        # stable, compact id
+        out["row_idx"] = [f"r{i}" for i in range(len(out))]
+    # optional: hash of the source string to guard against drift
+    out["src_hash8"] = out["en_US"].fillna("").map(lambda s: hashlib.md5(s.encode("utf-8")).hexdigest()[:8])
+    return out
 
 class LocalizationRun(ABC):
     def __init__(self, 

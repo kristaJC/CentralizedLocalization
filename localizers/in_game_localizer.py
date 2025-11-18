@@ -26,8 +26,21 @@ from in_game_config import *
 
 from general_config import *
 
+import hashlib
+import pandas as pd
 
 EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
+
+
+def ensure_ids(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    if "row_idx" not in out.columns:
+        # stable, compact id
+        out["row_idx"] = [f"r{i}" for i in range(len(out))]
+    # optional: hash of the source string to guard against drift
+    out["src_hash8"] = out["en_US"].fillna("").map(lambda s: hashlib.md5(s.encode("utf-8")).hexdigest()[:8])
+    return out
+
 
 
 class InGameLocalizer(LocalizationRun):
@@ -75,7 +88,11 @@ class InGameLocalizer(LocalizationRun):
         data = self.wksht.get_all_values()
         self.input_headers = data.pop(0)
         self.data = data
-        self.df = pd.DataFrame(data, columns=self.input_headers) #pandas DF
+        self.df = pd.DataFrame(data, columns=self.input_headers) 
+        self.df = ensure_ids(self.df)
+        
+
+        #pandas DF
 
         return self.data
     
@@ -83,10 +100,72 @@ class InGameLocalizer(LocalizationRun):
     #### Maybe make this more flexible like marketing... add a character limit
     def preprocess(self, data:List[str])->str: 
 
-        ## Convert data to slug....
-        prepped = json.dumps(self.df.to_dict(orient='records'))
+        PH_RE = re.compile(r"<[^>]+>|\{[^}]+\}")
+        """
+        rows_df must have columns:
+            - row_idx (stable id)
+            - en_US (source)
+            - char_limit (int)
+            - optional: additional columns
+        """
+        n = len(self.df)
+    
+        self.df["char_limit"] = pd.to_numeric(self.df["char_limit"], errors="coerce")
 
-        return prepped
+
+        # Find the cols 
+        other_cols = self.df.columns.tolist()
+        other_cols.remove("row_idx")
+        other_cols.remove("en_US")
+        try:
+            other_cols.remove('char_limit')
+        except:
+            pass
+        try:
+            other_cols.remove("src_hash8")
+        except:
+            pass
+        
+        # build compact payload the model needs (ordered!)
+        payload = []
+        for _, r in self.df.iterrows():
+            en = r.get("en_US", "") or ""
+
+            item = {
+                "row_idx": r["row_idx"],
+                "en_US": en,
+                # keep payload tiny; include only relevant hints
+            }
+            # include char_limit only if it’s a finite number
+            limit = r.get("char_limit","") or ""
+            if pd.notna(limit):
+                item["char_limit"] = int(limit)
+            
+            ## Grab the other cols and convert to string
+            for col in other_cols:
+                val = r.get(col)
+                if pd.notna(val):
+                    item[col] = str(val)
+                
+                
+            # placeholders list (helps the model self-check)
+            ph = PH_RE.findall(en)
+            if ph:
+                item["placeholders"] = ph
+            # tiny checksum for alignment debugging
+            if "src_hash8" in self.df.columns and r.get("src_hash8"):
+                item["src_hash8"] = r["src_hash8"]
+
+            payload.append(item)
+
+        self.other_cols = other_cols
+        self.prepped = json.dumps(payload)
+
+
+        ## Convert data to slug....
+        #prepped = json.dumps(self.df.to_dict(orient='records'))
+
+        return self.prepped
 
     
     def _get_game_context(self):
@@ -168,8 +247,8 @@ class InGameLocalizer(LocalizationRun):
             Respond in **JSON format**, one object per row:
             json
             [
-            {{ "token": "token_name_1", "{lang_cd}": "translated phrase 1" }},
-            {{ "token": "token_name_2", "{lang_cd}": "translated phrase 2" }},
+            {{ "en_US": "original phrase", "row_idx": row_idx, "{lang_cd}": "translated phrase 1" }},
+            {{ "en_US": "original phrase","row_idx" : row_idx, "{lang_cd}": "translated phrase 2" }},
             ...
             ]\n\n
             """
@@ -217,7 +296,7 @@ class InGameLocalizer(LocalizationRun):
         usage = response.usage
         return output, usage
 
-    
+    '''
     def _parse_model_json_block(self, raw_output:str)->Dict[str,Any]:
         """
         Cleans and parses a JSON-like string from a model output wrapped in markdown code block.
@@ -250,7 +329,7 @@ class InGameLocalizer(LocalizationRun):
                 raise ValueError(f"Could not parse JSON: {e}")
         else:
             return loaded
-
+    '''
 
     def postprocess(self, 
                     outputs:str)->List[pd.DataFrame]: 
@@ -265,21 +344,27 @@ class InGameLocalizer(LocalizationRun):
 
         return self.postprocessed_dfs
 
-    #Helper function for write_outputs
     def _merge_outputs_by_language(self, 
                                    post: List[pd.DataFrame])->pd.DataFrame:
         
-        #Consider doing this for different cases
-        # eg.drop_cols set at init : ['context'] for panda pop
-        # eg.join_cols set at init: ['token']
 
+        processed_groups = dict(zip(self.lang_cds, post))
 
-        self.df = self.df#.drop(columns=['context'])
-        for i in post:
-            self.df = self.df.merge(i, on=['token'],how='left')
+        ### Make sure this drops off any extra fields.... we want this all clean like, en_US + languages 
+        results = self.df.copy()
+        for lang,df in processed_groups.items():
+            results = results.merge(df[['row_idx',lang]],on = ["row_idx"], how='left')
         
-        return self.df 
-    
+        select_cols = ['en_US',*self.other_cols, *self.lang_cds]
+        if self.char_limit_policy=='strict':
+            select_cols = ['en_US',*self.other_cols,'char_limit',*self.lang_cds]
+            
+        self.results = results[select_cols].fillna({'char_limit':""})
+
+        return self.results
+
+
+   
     #def _finalize_status_tracking(self):
         #self.tracker.overall_status = "Succeeded"
         ##update tracking sheet 

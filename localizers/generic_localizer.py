@@ -19,6 +19,8 @@ from pyspark.sql.functions import *
 from functools import reduce
 from typing import *
 import tiktoken
+import hashlib
+
 
 from base_localizer import LocalizationRun
 from ml_tracker import MLTracker
@@ -27,14 +29,7 @@ from ml_tracker import MLTracker
 from general_config import *
 
 
-### TODO: MAKE SURE ANY JOINS FOR OUTPUT JOIN ON 'row_idx' ONLY. Then select only the out columns you want to write. 
-
 EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
-
-
-
-import hashlib
-import pandas as pd
 
 def ensure_ids(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
@@ -59,7 +54,7 @@ class GenericLocalizer(LocalizationRun):
 
         self.required_tabs = self.cfg.get("input", {}).get("required_tabs", [])
         self.char_limit_policy = self.cfg.get("char_limit_policy", "")
-        self.char_limit_column = None
+        self.char_limit_column = "char_limit" #changed from None
 
         #Get game relevant context set up
         self._get_game_context()
@@ -96,8 +91,17 @@ class GenericLocalizer(LocalizationRun):
         #self.data = data
         df = pd.DataFrame(data, columns=self.input_headers) #pandas DF
 
+        #def _numericise_col(df, col="char_limit"):
+        #    values = df[col].values.tolist()
+        #    numericised = gspread.utils.numericise_all(values, default_blank=None)
+        #    return numericised
+
         if "char_limit" in self.input_headers:
             self.char_limit_policy = "strict"
+        else:
+            self.df['char_limit'] = ""
+        #    numericised = _numericise_col(df, "char_limit")
+        #    df['char_limit'] = numericised
 
         self.df = ensure_ids(df)
         self.data = self.df.values 
@@ -135,12 +139,29 @@ class GenericLocalizer(LocalizationRun):
         rows_df must have columns:
             - row_idx (stable id)
             - en_US (source)
-            - optional: char_limit (int), context, any other hints
+            - char_limit (int)
+            - optional: additional columns
         """
         n = len(self.df)
     
         self.df["char_limit"] = pd.to_numeric(self.df["char_limit"], errors="coerce")
-     
+
+
+        # Find the cols 
+        other_cols = self.df.columns.tolist()
+        other_cols.remove("row_idx")
+        other_cols.remove("en_US")
+        try:
+            other_cols.remove('char_limit')
+        except:
+            pass
+        try:
+            other_cols.remove("src_hash8")
+        except:
+            pass
+        
+        
+
         # build compact payload the model needs (ordered!)
         payload = []
         for _, r in self.df.iterrows():
@@ -151,15 +172,18 @@ class GenericLocalizer(LocalizationRun):
                 # keep payload tiny; include only relevant hints
             }
             # include char_limit only if it’s a finite number
-            limit = r.get("char_limit")
+            limit = r.get("char_limit","") or ""
             if pd.notna(limit):
                 item["char_limit"] = int(limit)
-            # include char_limit if present
-            #if "char_limit" in self.df.columns and pd.notna(r["char_limit"]):
-            #    item["char_limit"] = int(r["char_limit"])
-            # optional per-row context
-            if "context" in self.df.columns and r.get("context"):
-                item["context"] = str(r["context"])
+            
+            ## Grab the other cols and convert to string
+            #other_cols.remove('char_limit')
+            for col in other_cols:
+                val = r.get(col)
+                if pd.notna(val):
+                    item[col] = str(val)
+                
+                
             # placeholders list (helps the model self-check)
             ph = PH_RE.findall(en)
             if ph:
@@ -170,6 +194,7 @@ class GenericLocalizer(LocalizationRun):
 
             payload.append(item)
 
+        self.other_cols = other_cols
         self.prepped = json.dumps(payload)
 
         return self.prepped
@@ -435,9 +460,9 @@ class GenericLocalizer(LocalizationRun):
         for lang,df in processed_groups.items():
             results = results.merge(df[['row_idx',lang]],on = ["row_idx"], how='left')
         
-        select_cols = ['en_US',*self.lang_cds]
+        select_cols = ['en_US',*self.other_cols, *self.lang_cds]
         if self.char_limit_policy=='strict':
-            select_cols = ['en_US','char_limit',*self.lang_cds]
+            select_cols = ['en_US',*self.other_cols,'char_limit',*self.lang_cds]
             
         self.results = results[select_cols].fillna({'char_limit':""})
 
@@ -478,32 +503,18 @@ class GenericLocalizer(LocalizationRun):
         
         
         number_to_letter = {
-            "1": "A",
-            "2": "B",
-            "3": "C",
-            "4": "D",
-            "5": "E",
-            "6": "F",
-            "7": "G",
-            "8": "H",
-            "9": "I",
-            "10": "J",
-            "11": "K",
-            "12": "L",
-            "13": "M",
-            "14": "N",
-            "15": "O",
-            "16": "P",
-            "17": "Q",
-            "18": "R",
-            "19": "S",
-            "20": "T",
-            "21": "U",
-            "22": "V",
-            "23": "W",
-            "24": "X",
-            "25": "Y",
-            "26": "Z"
+            "1": "A",  "2": "B",  "3": "C",  "4": "D",  "5": "E",
+            "6": "F",  "7": "G",  "8": "H",  "9": "I", "10": "J",
+            "11": "K", "12": "L", "13": "M", "14": "N", "15": "O",
+            "16": "P", "17": "Q", "18": "R", "19": "S", "20": "T",
+            "21": "U", "22": "V", "23": "W", "24": "X", "25": "Y",
+            "26": "Z", "27": "AA", "28": "AB", "29": "AC", "30": "AD",
+            "31": "AE", "32": "AF", "33": "AG", "34": "AH", "35": "AI",
+            "36": "AJ", "37": "AK", "38": "AL", "39": "AM", "40": "AN",
+            "41": "AO", "42": "AP", "43": "AQ", "44": "AR", "45": "AS",
+            "46": "AT", "47": "AU", "48": "AV", "49": "AW", "50": "AX",
+            "51": "AY", "52": "AZ", "53": "BA", "54": "BB", "55": "BC",
+            "56": "BD", "57": "BE", "58": "BF", "59": "BG", "60": "BH",
         }
         letter_range = number_to_letter[str(len(headers))]
         data_range = f"A2:{letter_range}{len(out_data)+1}"
