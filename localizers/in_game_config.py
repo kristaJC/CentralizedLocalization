@@ -60,5 +60,13 @@ GG_CONTEXT_INFER = """Some rows may include a context field. This may contain ad
 
 GG_TOKEN_INFER = """Each row includes a token which may contain clues about the theme or in-game context (e.g. “detectives”, “event”, “deluxe”). If possible, infer the theme from the token and apply that understanding to improve the translation — especially when the English phrase is short or ambiguous."""
 
+##########################################
 
+DMM_LANGS = ["French", "German","Italian","Japanese","Korean","Portuguese (Brazil)","Russian","Spanish (Latin America)","Simplified Chinese","Traditional Chinese (Taiwan)"]
+
+DMM_LANG_CDS = ["fr","de","it","ja","ko","pt-BR","ru","es-419","zh-CN","zh-TW"]
+
+DMM_EX_INPUT = ""
+
+DMM_TOKEN_INFER = ""
 
