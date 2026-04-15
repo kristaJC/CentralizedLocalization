@@ -62,11 +62,28 @@ GG_TOKEN_INFER = """Each row includes a token which may contain clues about the 
 
 ##########################################
 
-DMM_LANGS = ["French", "German","Italian","Japanese","Korean","Portuguese (Brazil)","Russian","Spanish (Latin America)","Simplified Chinese","Traditional Chinese (Taiwan)"]
+DMM_LANGS = ["French", "German","Italian","Japanese","Korean","Portuguese (Brazil)","Spanish (Latin America)"]
 
-DMM_LANG_CDS = ["fr","de","it","ja","ko","pt-BR","ru","es-419","zh-CN","zh-TW"]
+DMM_LANG_CDS = ["fr","de","it","ja","ko","pt-BR","es-419"]
+
+
+DMM_LANG_MAP = dict(zip(DMM_LANGS, DMM_LANG_CDS))
 
 DMM_EX_INPUT = ""
 
 DMM_TOKEN_INFER = ""
 
+
+
+
+##########################################
+
+DEB_LANGS = ["French", "German","Italian","Japanese","Korean","Portuguese (Brazil)","Russian","Spanish (Latin America)","Simplified Chinese","Traditional Chinese (Taiwan)"]
+
+DEB_LANG_CDS = ["fr","de","it","ja","ko","pt-BR","ru","es-419","zh-CN","zh-TW"]
+
+DEB_LANG_MAP = dict(zip(DEB_LANGS, DEB_LANG_CDS))
+
+DEB_EX_INPUT = ""
+
+DEB_TOKEN_INFER = ""
