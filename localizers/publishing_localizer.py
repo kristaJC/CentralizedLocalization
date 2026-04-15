@@ -221,7 +221,7 @@ class PublishingLocalizer(LocalizationRun):
                 altered = pd.concat(holder)
             else:
                 altered=holder[0]
-            prepped_holder.extend(altered)
+            prepped_holder.append(altered)
 
             vals_write = altered[['row_idx','target_char_limit','en_US']].to_dict(orient='records')
             slug = json.dumps(vals_write)
@@ -366,7 +366,7 @@ class PublishingLocalizer(LocalizationRun):
 
         ### Get init data
         # PA 2025-11-11: changed to conisder the option that ios df is None. -->
-        if self.android_long_df and self.ios_long_df:
+        if self.android_long_df is not None and self.ios_long_df is not None:
             unioned_inputs = pd.concat([self.ios_long_df.toPandas(), self.android_long_df.toPandas()])
         elif self.android_long_df:
             unioned_inputs = self.android_long_df.toPandas()
@@ -426,7 +426,7 @@ class PublishingLocalizer(LocalizationRun):
         unioned_wide_og = self._helper_long_inputs_for_merge()
         unioned_wide = unioned_wide_og.copy()
         for df in parsed_postprocessed_wide:
-            df = df.drop(columns = ['row_idx','language_cd']),
+            df = df.drop(columns=['row_idx', 'language_cd'])
             unioned_wide = unioned_wide.merge(df, on= ['row_id','platform','game','en_char_limit'],how='left')
         
 
@@ -667,7 +667,7 @@ class PublishingLocalizer(LocalizationRun):
             HARD REQUIREMENT: The translation for each row MUST be <= target_char_limit characters (count spaces/punctuation).
             If needed, shorten by rephrasing while keeping meaning & tone. Do NOT omit the meaning.
 
-            Important: Keep placeholders like {ITEM} or <NAME> unchanged in the translation. Copy them exactly as in English.
+            Important: Keep placeholders like {{ITEM}} or <NAME> unchanged in the translation. Copy them exactly as in English.
 
             Output JSON only, with this schema:
             [
