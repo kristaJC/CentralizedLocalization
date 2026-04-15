@@ -127,6 +127,8 @@ class MarketingLocalizer(LocalizationRun):
         self.game = game
         self.lang_specific_guidelines = GENERAL_LANG_SPECIFIC_GUIDELINES
         self.general_game_specific_guidelines = GENERAL_GAME_SPECIFIC_GUIDELINES
+        if game not in self.general_game_specific_guidelines:
+            raise ValueError(f"Game '{game}' not found in GENERAL_GAME_SPECIFIC_GUIDELINES. Available: {list(self.general_game_specific_guidelines.keys())}")
         self.game_description = self.general_game_specific_guidelines[game]
 
         ### still need to set self.lang_map, self.languages, self.lang_cds
