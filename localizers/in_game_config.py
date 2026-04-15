@@ -24,12 +24,25 @@ PP_TOKEN_INFER = """Each row includes a token which may contain clues about the 
 ##########################################
 
 
-CJB_LANGS = ["Japanese", "French", "Italian", "German", "Korean", 
-             "Traditional Chinese (Taiwan)", "Simplified Chinese", 
-             "Portuguese (Brazil)", "Russian", "Spanish (Latin America)", 
-             "Spanish (Spain)", "Norwegian", "Swedish"]
+CJB_LANGS = [
+    "German",
+    "French (France)",
+    "Korean",
+    "Spanish (Latin America)",
+    "Spanish (Spain)",
+    "Simplified Chinese",
+    "Italian",
+    "Portuguese (Brazil)",
+    "Russian",
+    "Norwegian",
+    "Swedish",
+    "Danish",
+    "Finnish",
+    "Dutch (Netherlands)",
+    "Japanese",
+]
 
-CJB_LANG_CDS = ['ja','fr','it','de','ko','zh-TW','zh-CN','pt-BR','ru','es-419','es-ES','nb','sv']
+CJB_LANG_CDS = ['de', 'fr-FR', 'ko', 'es-419', 'es-ES', 'zh-CN', 'it', 'pt-BR', 'ru', 'nb', 'sv', 'da', 'fi', 'nl', 'ja']
 
 CJB_LANG_MAP = dict(zip(CJB_LANGS, CJB_LANG_CDS))
 
@@ -66,7 +79,22 @@ DMM_LANGS = ["French", "German","Italian","Japanese","Korean","Portuguese (Brazi
 
 DMM_LANG_CDS = ["fr","de","it","ja","ko","pt-BR","ru","es-419","zh-CN","zh-TW"]
 
+DMM_LANG_MAP = dict(zip(DMM_LANGS, DMM_LANG_CDS))
+
 DMM_EX_INPUT = ""
 
 DMM_TOKEN_INFER = ""
+
+##########################################
+
+# Maps game name (as it appears in the submission form's Game field) to its language map.
+# Used by the Localization Orchestrator to inject TargetLanguages before
+# calling Generic Localizer for InGame requests.
+# Keys must match the exact Game field values used in the centralized tracking sheet.
+INGAME_LANG_MAPS = {
+    "Panda Pop":         PP_LANG_MAP,
+    "Cookie Jam Blast":  CJB_LANG_MAP,
+    "Genies & Gems":     GG_LANG_MAP,
+    "Disney Magic Match": DMM_LANG_MAP,
+}
 
