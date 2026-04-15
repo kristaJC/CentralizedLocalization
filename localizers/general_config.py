@@ -5,6 +5,15 @@ MODEL = 'gpt-4o'
 TEMP = 0.05
 
 
+def col_letter(n: int) -> str:
+    """Convert a 1-based column number to a spreadsheet column letter (A, B, ..., Z, AA, ...)."""
+    result = ""
+    while n > 0:
+        n, rem = divmod(n - 1, 26)
+        result = chr(65 + rem) + result
+    return result
+
+
 # Tracking spreadsheet for all requests
 CENTRALIZED_SHEET_URL = "https://docs.google.com/spreadsheets/d/13IqPWBFqoZwALTbYLSeEn_pGYLWOXIkNNN2Y2yyzj48/edit?gid=0#gid=0"
 

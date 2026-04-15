@@ -30,9 +30,6 @@ from general_config import *
 from publishing_config import *
 
 
-EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
-
-
 spark = pyspark.sql.SparkSession.builder.getOrCreate()
 
 class PublishingLocalizer(LocalizationRun):
@@ -344,24 +341,13 @@ class PublishingLocalizer(LocalizationRun):
         return self.groups
     
 
-    def _call_model_batch(self, prompt:str)->Tuple[str,Dict[str,int]]:
-        """
-        Must return (outputs, usage_dict) where usage_dict includes:
-          {'prompt_tokens': int, 'completion_tokens': int}
-        """
-        MODEL = "gpt-4o"
-        temperature = 0.05
-
+    def _call_model_batch(self, prompt: str) -> Tuple[str, Dict[str, int]]:
         response = self.gpt.chat.completions.create(
-                model=MODEL, 
-                messages=prompt,
-                temperature=0.001  # adjust for creativity vs. stability
+            model=MODEL,
+            messages=prompt,
+            temperature=TEMP
         )
-
-        output = response.choices[0].message.content
-        usage = response.usage
-
-        return output, usage
+        return response.choices[0].message.content, response.usage
         
 
     def postprocess(self, outputs)->List[pd.DataFrame]: 

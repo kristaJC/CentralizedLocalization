@@ -28,9 +28,6 @@ from marketing_config import *
 from general_config import *
 
 
-EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
-
-
 class MarketingLocalizer(LocalizationRun):
 
     def __init__(self, 
@@ -85,12 +82,11 @@ class MarketingLocalizer(LocalizationRun):
         target_langs_str = self.request.get("TargetLanguages")
         self.languages = [lang.strip() for lang in target_langs_str.split(",")]
 
-        lang_map = {}
-        for lang in self.languages:
-            lang_map[lang] = ALL_LANGUAGES[lang]
-        
+        missing = [lang for lang in self.languages if lang not in ALL_LANGUAGES]
+        if missing:
+            raise ValueError(f"Unknown language(s): {missing}. Available: {list(ALL_LANGUAGES.keys())}")
 
-        self.lang_map = lang_map
+        self.lang_map = {lang: ALL_LANGUAGES[lang] for lang in self.languages}
         self.lang_cds = list(self.lang_map.values())
   
 
@@ -197,27 +193,13 @@ class MarketingLocalizer(LocalizationRun):
         return self.groups
 
     #return ->Tuple[str, Dict[str, int]]
-    def _call_model_batch(self, prompt:str):
-        """
-        Must return (outputs, usage_dict) where usage_dict includes:
-          {'prompt_tokens': int, 'completion_tokens': int}
-        """
-        MODEL = "gpt-4o"
-        temperature = 0.05
-
+    def _call_model_batch(self, prompt: str):
         response = self.gpt.chat.completions.create(
-                model=MODEL, 
-                messages=prompt,
-                temperature=0.05  # adjust for creativity vs. stability
+            model=MODEL,
+            messages=prompt,
+            temperature=TEMP
         )
-    
-        ### call GPT model for translation
-        #GPT chat completions prompt
-        #raw_results = self.gpt_model.
-
-        output = response.choices[0].message.content
-        usage = response.usage
-        return output, usage
+        return response.choices[0].message.content, response.usage
 
     
     def _parse_model_json_block(self, raw_output:str)->Dict[str,Any]:
@@ -320,35 +302,7 @@ class MarketingLocalizer(LocalizationRun):
         out_data = self.results.values.tolist()
         
         
-        number_to_letter = {
-            "1": "A",
-            "2": "B",
-            "3": "C",
-            "4": "D",
-            "5": "E",
-            "6": "F",
-            "7": "G",
-            "8": "H",
-            "9": "I",
-            "10": "J",
-            "11": "K",
-            "12": "L",
-            "13": "M",
-            "14": "N",
-            "15": "O",
-            "16": "P",
-            "17": "Q",
-            "18": "R",
-            "19": "S",
-            "20": "T",
-            "21": "U",
-            "22": "V",
-            "23": "W",
-            "24": "X",
-            "25": "Y",
-            "26": "Z"
-        }
-        letter_range = number_to_letter[str(len(headers))]
+        letter_range = col_letter(len(headers))
         data_range = f"A2:{letter_range}{len(out_data)+1}"
 
 
