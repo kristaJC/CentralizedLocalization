@@ -14,8 +14,11 @@ import datetime
 import pandas as pd
 from pyspark.sql.functions import col
 
-from localizers.general_config import CENTRALIZED_SHEET_URL, DIR
+from localizers.general_config import CENTRALIZED_SHEET_URL
 from localizers.in_game_config import INGAME_LANG_MAPS
+
+_nb_path = dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get()
+DIR = _nb_path.rsplit('/', 1)[0] + "/"
 
 # COMMAND ----------
 

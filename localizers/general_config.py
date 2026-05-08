@@ -17,9 +17,6 @@ def col_letter(n: int) -> str:
 # Tracking spreadsheet for all requests
 CENTRALIZED_SHEET_URL = "https://docs.google.com/spreadsheets/d/13IqPWBFqoZwALTbYLSeEn_pGYLWOXIkNNN2Y2yyzj48/edit?gid=0#gid=0"
 
-# Directory where notebooks are stored
-DIR = "/Workspace/Users/krista@jamcity.com/CentralizedLocalizationWorkflow/" 
-
 GENERIC_LOC_CFG = {
     "input": {"required_tabs": ["input","output"]},
     "char_limit_policy": "strict",
