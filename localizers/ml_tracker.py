@@ -25,7 +25,7 @@ from general_config import *
 
 # sheet_status.py (MVP)
 
-EXPERIMENT_NAME = "/Users/krista@jamcity.com/centralized_loc_translation_run"
+EXPERIMENT_NAME = "/Data Science/mlflow-experiments/localization/centralized-localization"
 
 
 def _to_str(v, maxlen=255): 

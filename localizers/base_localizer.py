@@ -28,7 +28,7 @@ from ml_tracker import MLTracker
 MODEL = 'gpt-4o'
 TEMP = 0.05
 
-EXPERIMENT_NAME = "/Users/pandreoni@jamcity.com/centralized_loc_translation_run"
+EXPERIMENT_NAME = "/Data Science/mlflow-experiments/localization/centralized-localization"
 CENTRAL_SHEET_URL = ""
 
 ### Helper function to update the status

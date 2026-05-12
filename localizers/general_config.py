@@ -1,6 +1,6 @@
 # Model and experiment cases
 
-EXPERIMENT_NAME = "/Users/pandreoni@jamcity.com/centralized_loc_translation_run"
+EXPERIMENT_NAME = "/Data Science/mlflow-experiments/localization/centralized-localization"
 MODEL = 'gpt-4o'
 TEMP = 0.05
 
